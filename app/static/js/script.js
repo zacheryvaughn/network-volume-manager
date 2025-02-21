@@ -1,26 +1,26 @@
-// Helper function to update path display
+// Helper function to update the path display (breadcrumb navigation)
 const updatePathDisplay = () => {
     if (!state.elements.pathDisplay || !state.elements.volumeSelect) return; // Guard against early calls
-    
+
     const { pathDisplay } = state.elements;
     const volumeSelect = state.elements.volumeSelect;
     const selectedVolume = volumeSelect.value;
-    
+
     // Get the relative path by removing the volume prefix
     const relativePath = state.currentVolumePath.replace(selectedVolume, '');
     const parts = relativePath.split('/').filter(Boolean);
-    
+
     // Create clickable breadcrumb navigation starting with volume root
     let html = `<a href="#" class="path-root">📁 ${selectedVolume}</a>`;
     let currentPath = selectedVolume;
-    
-    parts.forEach((part, index) => {
+
+    parts.forEach((part) => {
         currentPath += part + '/';
         html += `<a href="#" class="path-part" data-path="${currentPath}">${part}/</a>`;
     });
-    
+
     pathDisplay.innerHTML = html;
-    
+
     // Add click handlers for path navigation
     pathDisplay.querySelectorAll('.path-part').forEach(link => {
         link.onclick = (e) => {
@@ -29,18 +29,19 @@ const updatePathDisplay = () => {
             state.socket.emit('validate_path', { volume_path: state.currentVolumePath });
         };
     });
-    
+
     // Make volume root clickable
     const pathRoot = pathDisplay.querySelector('.path-root');
     if (pathRoot) {
         pathRoot.onclick = (e) => {
+            e.preventDefault();
             state.currentVolumePath = selectedVolume;
             state.socket.emit('validate_path', { volume_path: state.currentVolumePath });
         };
     }
 };
 
-// Constants
+// Constants and configuration
 const CONFIG = {
     SOCKET: {
         reconnection: true,
@@ -50,11 +51,11 @@ const CONFIG = {
         timeout: 60000,
     },
     UPLOAD: {
-        CHUNK_SIZE: 10 * 1024 * 1024, // Increased to match client's natural chunk size
+        CHUNK_SIZE: 10 * 1024 * 1024, // 10MB per chunk; consider increasing if network/server allow it
         MAX_FILE_SIZE: 20 * 1024 * 1024 * 1024,
         MAX_FILENAME_LENGTH: 255,
         MAX_RETRIES: 3,
-        CHUNK_DELAY: 60, // 60ms delay between chunks for smooth streaming
+        CHUNK_DELAY: 10, // Reduced delay between chunks to speed up uploads; adjust as needed
     }
 };
 
@@ -95,131 +96,7 @@ const utils = {
     }
 };
 
-// Socket event handlers
-const socketHandlers = {
-    connect: () => {
-        utils.updateStatus('Connected');
-        if (state.currentVolumePath) {
-            state.socket.emit('list_files', { volume_path: state.currentVolumePath });
-        }
-    },
-
-    disconnect: () => utils.updateStatus('Disconnected - trying to reconnect...'),
-    
-    connect_error: (error) => utils.updateStatus(`Connection error: ${error.message}`),
-    
-    reconnect: (attemptNumber) => {
-        utils.updateStatus(`Reconnected after ${attemptNumber} attempts`);
-        if (state.currentVolumePath) {
-            state.socket.emit('list_files', { volume_path: state.currentVolumePath });
-        }
-    },
-    
-    reconnect_failed: () => utils.updateStatus('Failed to reconnect - please refresh the page'),
-    
-    path_validation: (response) => {
-        const { pathError, fileList } = state.elements;
-        if (response.success) {
-            pathError.classList.add('hidden');
-            state.socket.emit('list_files', { volume_path: state.currentVolumePath });
-        } else {
-            pathError.textContent = response.message;
-            pathError.classList.remove('hidden');
-            fileList.innerHTML = '<p>No files</p>';
-        }
-    },
-    
-    processing_status: (data) => {
-        const percent = Math.round((data.processed / data.total) * 100);
-        state.elements.serverProgress.textContent = `Server Processing: ${percent}%`;
-    },
-    
-    files_updated: (data) => {
-        const { fileList, pathDisplay } = state.elements;
-        fileList.innerHTML = '';
-        
-        // Always update path display first, regardless of file list
-        updatePathDisplay();
-        
-        if (!data.success || !data.files || !data.files.length) {
-            fileList.innerHTML = '<p>No files</p>';
-            return;
-        }
-        
-        const totalSize = utils.formatSize(data.total_size || 0);
-        fileList.innerHTML = `<p>Total space used: ${totalSize}</p>`;
-        
-        const list = document.createElement('ul');
-        
-        // Sort and display items (folders first, then files)
-        data.files.forEach(item => {
-            const listItem = document.createElement('li');
-            const date = new Date(item.modified * 1000).toLocaleString();
-            
-            if (item.is_dir) {
-                // Folder item
-                const folderName = item.name.split('/').pop(); // Get last part of path
-                listItem.innerHTML = `
-                    <span class="folder-icon">📁</span>
-                    <a href="#" class="folder-link">${folderName}</a>
-                    (Folder) - Modified: ${date}
-                `;
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => fileOperations.deleteFile(item.name, true);
-                
-                listItem.appendChild(deleteBtn);
-                listItem.querySelector('.folder-link').onclick = (e) => {
-                    e.preventDefault();
-                    fileOperations.navigateToFolder(item.name);
-                };
-            } else {
-                // File item
-                listItem.innerHTML = `
-                    <span class="file-icon">📄</span>
-                    ${item.name.split('/').pop()} (${utils.formatSize(item.size)}) - Modified: ${date}
-                `;
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => fileOperations.deleteFile(item.name);
-                
-                listItem.appendChild(deleteBtn);
-            }
-            
-            list.appendChild(listItem);
-        });
-        fileList.appendChild(list);
-    },
-    
-    upload_response: (data) => {
-        const { uploadStatus, uploadProgress, chunkProgress } = state.elements;
-        if (data.success) {
-            uploadStatus.classList.add('hidden');
-        } else {
-            uploadProgress.textContent = 'Upload Percentage: 100%';
-            chunkProgress.textContent = data.message || 'Upload failed';
-        }
-        utils.updateStatus(data.message);
-    },
-    
-    delete_response: (data) => {
-        utils.updateStatus(data.message);
-        if (data.success && state.currentVolumePath) {
-            state.socket.emit('list_files', { volume_path: state.currentVolumePath });
-        }
-    },
-
-    folder_response: (data) => {
-        utils.updateStatus(data.message);
-        if (data.success && state.currentVolumePath) {
-            state.socket.emit('list_files', { volume_path: state.currentVolumePath });
-        }
-    }
-};
-
-// File operations
+// File operations, including navigation, folder creation, deletion, and upload
 const fileOperations = {
     navigateToFolder: (folderPath) => {
         const volumeSelect = state.elements.volumeSelect;
@@ -228,11 +105,11 @@ const fileOperations = {
         // If it's a parent directory link (..)
         if (folderPath === '..') {
             const currentParts = state.currentVolumePath.replace(selectedVolume, '').split('/').filter(Boolean);
-            if (currentParts.length > 0) { // Don't go above volume root
+            if (currentParts.length > 0) {
                 currentParts.pop();
                 state.currentVolumePath = selectedVolume + currentParts.join('/') + '/';
             } else {
-                state.currentVolumePath = selectedVolume; // Stay at volume root
+                state.currentVolumePath = selectedVolume;
             }
         } else {
             // For regular folder navigation
@@ -298,8 +175,7 @@ const fileOperations = {
             const uploadedBytes = uploadState.offset;
             const speed = uploadedBytes / elapsedTime;
             const remainingBytes = file.size - uploadedBytes;
-            const timeRemaining = remainingBytes / speed;
-
+            const timeRemaining = remainingBytes / speed || 0;
             return {
                 speed: utils.formatSize(speed) + '/s',
                 timeRemaining: utils.formatTime(timeRemaining) + ' remaining'
@@ -318,21 +194,11 @@ const fileOperations = {
                     throw new Error('Connection lost');
                 }
 
-                // Read next chunk only after previous chunk is processed
-                state.socket.once('processing_status', () => {
-                    const progress = Math.round((uploadState.offset / file.size) * 100);
-                    const stats = updateStats();
-                    state.elements.uploadProgress.textContent = `Upload Percentage: ${progress}% (${stats.speed} - ${stats.timeRemaining})`;
-                    
-                    if (!uploadState.uploadComplete) {
-                        setTimeout(uploadChunk, CONFIG.UPLOAD.CHUNK_DELAY);
-                    }
-                });
-
                 const chunk = file.slice(uploadState.offset, uploadState.offset + CONFIG.UPLOAD.CHUNK_SIZE);
                 const reader = new FileReader();
 
                 reader.onload = (e) => {
+                    // NOTE: Converting to base64 adds overhead. For improved performance, consider using binary transfer (ArrayBuffer) and update the server accordingly.
                     const base64Data = e.target.result.replace(/^data:[^;]+;base64,/, '');
                     state.socket.emit('upload_file', {
                         file_name: file.name,
@@ -343,10 +209,21 @@ const fileOperations = {
                     });
                     
                     uploadState.offset += chunk.size;
+                    uploadState.currentChunk++;
+
+                    const progress = Math.round((uploadState.offset / file.size) * 100);
+                    const stats = updateStats();
+                    state.elements.uploadProgress.textContent = `Upload Percentage: ${progress}% (${stats.speed} - ${stats.timeRemaining})`;
+                    state.elements.chunkProgress.textContent = `Processing chunk ${uploadState.currentChunk}`;
                     
                     if (uploadState.offset >= file.size && !uploadState.uploadComplete) {
                         uploadState.uploadComplete = true;
                         state.elements.uploadProgress.textContent = 'Upload Percentage: 100%';
+                        return;
+                    }
+                    
+                    if (!uploadState.uploadComplete) {
+                        setTimeout(uploadChunk, CONFIG.UPLOAD.CHUNK_DELAY);
                     }
                 };
 
@@ -371,9 +248,9 @@ const fileOperations = {
     }
 };
 
-// Initialize app
+// Initialization and event listener setup
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize socket with default namespace
+    // Initialize socket connection
     state.socket = io('/', CONFIG.SOCKET);
 
     // Cache DOM elements
@@ -394,20 +271,119 @@ document.addEventListener('DOMContentLoaded', () => {
         folderNameInput: document.getElementById('folderNameInput')
     };
 
-    // Register socket events
-    Object.entries(socketHandlers).forEach(([event, handler]) => {
+    // Register socket event handlers
+    Object.entries({
+        connect: () => {
+            utils.updateStatus('Connected');
+            if (state.currentVolumePath) {
+                state.socket.emit('list_files', { volume_path: state.currentVolumePath });
+            }
+        },
+        disconnect: () => utils.updateStatus('Disconnected - trying to reconnect...'),
+        connect_error: (error) => utils.updateStatus(`Connection error: ${error.message}`),
+        reconnect: (attemptNumber) => {
+            utils.updateStatus(`Reconnected after ${attemptNumber} attempts`);
+            if (state.currentVolumePath) {
+                state.socket.emit('list_files', { volume_path: state.currentVolumePath });
+            }
+        },
+        reconnect_failed: () => utils.updateStatus('Failed to reconnect - please refresh the page'),
+        path_validation: (response) => {
+            const { pathError, fileList } = state.elements;
+            if (response.success) {
+                pathError.classList.add('hidden');
+                state.socket.emit('list_files', { volume_path: state.currentVolumePath });
+            } else {
+                pathError.textContent = response.message;
+                pathError.classList.remove('hidden');
+                fileList.innerHTML = '<p>No files</p>';
+            }
+        },
+        processing_status: (data) => {
+            const percent = Math.round((data.processed / data.total) * 100);
+            state.elements.serverProgress.textContent = `Server Processing: ${percent}%`;
+        },
+        files_updated: (data) => {
+            const { fileList } = state.elements;
+            fileList.innerHTML = '';
+            updatePathDisplay();
+
+            if (!data.success || !data.files || !data.files.length) {
+                fileList.innerHTML = '<p>No files</p>';
+                return;
+            }
+
+            const totalSize = utils.formatSize(data.total_size || 0);
+            fileList.innerHTML = `<p>Total space used: ${totalSize}</p>`;
+            const list = document.createElement('ul');
+
+            data.files.forEach(item => {
+                const listItem = document.createElement('li');
+                const date = new Date(item.modified * 1000).toLocaleString();
+
+                if (item.is_dir) {
+                    const folderName = item.name.split('/').pop();
+                    listItem.innerHTML = `
+                        <span class="folder-icon">📁</span>
+                        <a href="#" class="folder-link">${folderName}</a>
+                        (Folder) - Modified: ${date}
+                    `;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => fileOperations.deleteFile(item.name, true);
+                    listItem.appendChild(deleteBtn);
+                    listItem.querySelector('.folder-link').onclick = (e) => {
+                        e.preventDefault();
+                        fileOperations.navigateToFolder(item.name);
+                    };
+                } else {
+                    listItem.innerHTML = `
+                        <span class="file-icon">📄</span>
+                        ${item.name.split('/').pop()} (${utils.formatSize(item.size)}) - Modified: ${date}
+                    `;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => fileOperations.deleteFile(item.name);
+                    listItem.appendChild(deleteBtn);
+                }
+                list.appendChild(listItem);
+            });
+
+            fileList.appendChild(list);
+        },
+        upload_response: (data) => {
+            const { uploadStatus, uploadProgress, chunkProgress } = state.elements;
+            if (data.success) {
+                uploadStatus.classList.add('hidden');
+            } else {
+                uploadProgress.textContent = 'Upload Percentage: 100%';
+                chunkProgress.textContent = data.message || 'Upload failed';
+            }
+            utils.updateStatus(data.message);
+        },
+        delete_response: (data) => {
+            utils.updateStatus(data.message);
+            if (data.success && state.currentVolumePath) {
+                state.socket.emit('list_files', { volume_path: state.currentVolumePath });
+            }
+        },
+        folder_response: (data) => {
+            utils.updateStatus(data.message);
+            if (data.success && state.currentVolumePath) {
+                state.socket.emit('list_files', { volume_path: state.currentVolumePath });
+            }
+        }
+    }).forEach(([event, handler]) => {
         state.socket.on(event, handler);
     });
 
-
-    // Setup event listeners
+    // Event listeners for UI elements
     state.elements.volumeSelect.addEventListener('change', (e) => {
         const newPath = e.target.value;
         state.currentVolumePath = newPath;
         state.elements.pathError.classList.add('hidden');
         state.elements.pathError.textContent = '';
-        
-        updatePathDisplay();  // Update path display immediately when volume changes
+        updatePathDisplay();
         state.socket.emit('validate_path', { volume_path: state.currentVolumePath });
     });
 
@@ -425,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initial setup
+    // Ensure the current volume path is in sync with the select element
     if (state.elements.volumeSelect.value !== state.currentVolumePath) {
         state.currentVolumePath = state.elements.volumeSelect.value;
     }
