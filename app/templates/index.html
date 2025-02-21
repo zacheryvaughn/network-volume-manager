@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="description" content="File Manager Application">
+    <title>File Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" defer></script>
+</head>
+<body>
+    <header>
+        <h1>File Manager</h1>
+    </header>
+
+    <main>
+        <section aria-labelledby="upload-section">
+            <h2 id="upload-section" class="hidden">File Upload</h2>
+            <form id="uploadForm" aria-label="File upload form">
+                <fieldset>
+                    <legend>Upload File</legend>
+                    <div class="volume-select">
+                        <label for="volumePath">Select Volume Path:</label>
+                        <select id="volumePath" required aria-describedby="pathError">
+                            <option value="/runpod-volume/">RunPod Serverless (/runpod-volume/)</option>
+                            <option value="test-volume/">Local Testing (test-volume/)</option>
+                        </select>
+                        <p class="error hidden" id="pathError" role="alert"></p>
+                    </div>
+                    <div>
+                        <label for="fileInput">Choose File:</label>
+                        <input type="file" id="fileInput" required aria-label="Select file to upload">
+                        <button type="submit">Upload</button>
+                    </div>
+                </fieldset>
+            </form>
+        </section>
+
+        <section id="uploadStatus" class="hidden" aria-live="polite">
+            <h3 id="uploadingFile"></h3>
+            <p id="uploadProgress" role="status"></p>
+            <p id="chunkProgress" role="status"></p>
+            <p id="serverProgress" role="status"></p>
+        </section>
+
+        <section aria-live="polite">
+            <p id="connectionStatus" role="status"></p>
+        </section>
+
+        <section aria-labelledby="files-section">
+            <h2 id="files-section">Files</h2>
+            
+            <!-- Current Path Display -->
+            <div id="pathDisplay" class="path-navigation" role="navigation" aria-label="Current folder path"></div>
+            
+            <!-- Create Folder Form -->
+            <form id="createFolderForm" aria-label="Create folder form">
+                <fieldset>
+                    <legend>Create New Folder</legend>
+                    <div>
+                        <label for="folderNameInput">Folder Name:</label>
+                        <input type="text" id="folderNameInput" required
+                               placeholder="Enter folder name"
+                               aria-label="Enter new folder name">
+                        <button type="submit">Create Folder</button>
+                    </div>
+                </fieldset>
+            </form>
+            
+            <div id="fileList" role="region" aria-label="List of files and folders"></div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 File Manager</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</body>
+</html>

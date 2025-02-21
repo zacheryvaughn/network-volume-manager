@@ -1,0 +1,194 @@
+/* Base styles */
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+}
+
+/* Layout */
+header {
+    margin-bottom: 2rem;
+}
+
+main {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+section {
+    margin-bottom: 2rem;
+}
+
+footer {
+    margin-top: 2rem;
+    color: #666;
+    text-align: center;
+}
+
+/* Forms */
+fieldset {
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 4px;
+}
+
+legend {
+    padding: 0 0.5rem;
+    font-weight: bold;
+}
+
+.volume-select {
+    margin-bottom: 1rem;
+}
+
+select, input[type="file"], button {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+}
+
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+/* Upload status */
+#uploadStatus {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+#uploadStatus h3 {
+    margin: 0 0 0.625rem 0;
+    color: #333;
+}
+
+#uploadStatus p {
+    margin: 0.3rem 0;
+    color: #666;
+}
+
+/* Path Navigation */
+.path-navigation {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+}
+
+.path-root {
+    color: #007bff;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+}
+
+.path-root:hover {
+    background: #e9ecef;
+    color: #0056b3;
+}
+
+.path-separator {
+    color: #666;
+}
+
+.path-part {
+    color: #007bff;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+}
+
+.path-part:hover {
+    background: #e9ecef;
+    color: #0056b3;
+}
+
+/* Create Folder Form */
+#createFolderForm {
+    margin-bottom: 1.5rem;
+}
+
+#createFolderForm fieldset {
+    border-color: #e9ecef;
+    background: #f8f9fa;
+}
+
+#folderNameInput {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    width: 200px;
+}
+
+/* File list */
+#fileList ul {
+    list-style: none;
+    padding: 0;
+}
+
+.folder-icon, .file-icon {
+    margin-right: 0.5rem;
+}
+
+.folder-link {
+    color: #007bff;
+    text-decoration: none;
+    margin-right: 0.5rem;
+}
+
+.folder-link:hover {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+#fileList li {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#fileList li:last-child {
+    border-bottom: none;
+}
+
+#fileList button {
+    background: #dc3545;
+    margin-left: 1rem;
+}
+
+#fileList button:hover {
+    background: #c82333;
+}
+
+/* Status and errors */
+#connectionStatus {
+    color: #666;
+    font-style: italic;
+}
+
+.error {
+    color: #dc3545;
+    margin: 0.3rem 0;
+}
+
+/* Utilities */
+.hidden {
+    display: none;
+}
