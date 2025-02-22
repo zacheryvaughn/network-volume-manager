@@ -78,6 +78,7 @@
                             <span class="item-name">{{ file }}</span>
                         </div>
                         <div class="item-right">
+                            <button class="rename-btn" onclick="startRename(this.parentElement.previousElementSibling.querySelector('.item-name'), false)">Rename</button>
                             <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
                         </div>
                     </div>

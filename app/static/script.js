@@ -123,21 +123,46 @@ class UIManager {
     createRenameInput(itemName, isFolder) {
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = isFolder ? itemName.slice(0, -1) : itemName;
+        
+        let displayName;
+        if (isFolder) {
+            // Remove trailing slash for folders
+            displayName = itemName.slice(0, -1);
+        } else {
+            // For files, separate name and extension
+            const lastDotIndex = itemName.lastIndexOf('.');
+            const baseName = lastDotIndex > 0 ? itemName.slice(0, lastDotIndex) : itemName;
+            const extension = lastDotIndex > 0 ? itemName.slice(lastDotIndex) : '';
+            displayName = baseName;
+            input.dataset.extension = extension;
+        }
+        
+        input.value = displayName;
         input.className = 'rename-input';
+        input.dataset.isFolder = isFolder;
         return input;
     }
 
     async completeRename(input, element, oldName, isFolder) {
         const newName = input.value.trim();
-        const originalName = isFolder ? oldName.slice(0, -1) : oldName;
+        let displayOldName, fullNewName;
+        
+        if (isFolder) {
+            displayOldName = oldName.slice(0, -1);
+            fullNewName = newName;
+        } else {
+            const extension = input.dataset.extension || '';
+            const lastDotIndex = oldName.lastIndexOf('.');
+            displayOldName = lastDotIndex > 0 ? oldName.slice(0, lastDotIndex) : oldName;
+            fullNewName = newName + extension;
+        }
 
-        if (newName && newName !== originalName) {
+        if (newName && newName !== displayOldName) {
             try {
                 await APIClient.renameItem(
                     window.location.pathname.substring(1),
-                    originalName,
-                    newName
+                    oldName,
+                    fullNewName
                 );
                 window.location.reload();
             } catch (error) {
