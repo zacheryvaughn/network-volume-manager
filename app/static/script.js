@@ -1,22 +1,130 @@
-document.getElementById('file').onchange = function() {
-    const file = this.files[0];
-    if (!file) return;
+// Queue management
+let uploadQueue = [];
+let isUploading = false;
+
+// View management
+function initializeViewToggle() {
+    const viewToggle = document.getElementById('view-toggle');
+    const itemsList = document.querySelector('#browser-content .items-list');
     
-    // Check file size (32GB in bytes)
-    const maxSize = 32 * 1024 * 1024 * 1024;
-    if (file.size > maxSize) {
-        alert('File size exceeds 32GB limit');
-        return;
+    if (!viewToggle || !itemsList) return;
+
+    // Load saved view preference
+    const currentView = localStorage.getItem('fileViewMode') || 'list';
+    if (currentView === 'grid') {
+        itemsList.classList.add('grid-view');
+        viewToggle.classList.add('grid-active');
     }
 
+    // Toggle view mode
+    viewToggle.addEventListener('click', () => {
+        const isGrid = itemsList.classList.toggle('grid-view');
+        viewToggle.classList.toggle('grid-active', isGrid);
+        localStorage.setItem('fileViewMode', isGrid ? 'grid' : 'list');
+    });
+}
+
+// Initialize view toggle on page load and after content updates
+document.addEventListener('DOMContentLoaded', initializeViewToggle);
+
+// Re-initialize view toggle after file upload (when content is refreshed)
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    const response = await originalFetch.apply(this, args);
+    const responseClone = response.clone();
+    
+    if (args[0] === window.location.pathname) {
+        responseClone.text().then(() => {
+            setTimeout(initializeViewToggle, 0);
+        });
+    }
+    
+    return response;
+};
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Toggle queue state
+document.getElementById('close-upload-queue-btn').onclick = function() {
+    const uploadQueue = document.getElementById('upload-queue');
+    uploadQueue.classList.toggle('closed');
+};
+
+document.getElementById('file').onchange = function() {
+    const files = Array.from(this.files);
+    if (!files.length) return;
+    
+    const maxSize = 32 * 1024 * 1024 * 1024; // 32GB
+    const queueContainer = document.getElementById('queue-container');
+    const queuedFiles = document.getElementById('queued-files');
+    
+    // Show queue if it was hidden
+    queueContainer.style.display = 'block';
+    document.getElementById('upload-queue').classList.remove('closed');
+    
+    // Add files to queue
+    files.forEach(file => {
+        if (file.size > maxSize) {
+            alert(`File ${file.name} exceeds 32GB limit`);
+            return;
+        }
+        
+        // Create queue item
+        const queueItem = document.createElement('div');
+        queueItem.className = 'queue-item';
+        queueItem.innerHTML = `
+            <div class="queue-item-name">${file.name}</div>
+            <div class="queue-item-size">${formatFileSize(file.size)}</div>
+        `;
+        
+        // Add to visual queue at bottom
+        queuedFiles.insertBefore(queueItem, queuedFiles.firstChild);
+        
+        // Add to beginning of queue (so bottom items are processed last)
+        uploadQueue.unshift({
+            file: file,
+            element: queueItem
+        });
+    });
+    
+    // Start upload if not already uploading
+    if (!isUploading) {
+        uploadNext();
+    }
+};
+
+function uploadNext() {
+    if (uploadQueue.length === 0) {
+        isUploading = false;
+        const progressContainer = document.querySelector('.progress-container');
+        progressContainer.style.opacity = '0';
+        return;
+    }
+    
+    isUploading = true;
+    const {file, element} = uploadQueue[0];
+    
+    // Show and reset progress container
     const progressContainer = document.querySelector('.progress-container');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    
     progressContainer.style.display = 'block';
+    progressContainer.style.opacity = '1';
+    progressBar.style.width = '0%';
+    progressBar.style.backgroundColor = 'var(--color-blue-500)';
+    
+    // Mark current item as uploading
+    element.classList.add('uploading');
     
     const xhr = new XMLHttpRequest();
-    const currentPath = window.location.pathname.substring(1); // Remove leading slash
+    const currentPath = window.location.pathname.substring(1);
     xhr.open('POST', '/upload/' + currentPath, true);
     
     xhr.upload.onprogress = function(e) {
@@ -33,24 +141,42 @@ document.getElementById('file').onchange = function() {
     xhr.onload = function() {
         if (xhr.status === 303 || xhr.status === 200) {
             progressText.textContent = 'Upload Complete!';
-            progressBar.style.backgroundColor = '#4CAF50';
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            progressBar.style.backgroundColor = 'var(--color-green-500)';
+            element.classList.remove('uploading');
+            element.classList.add('complete');
+            
+            // Refresh browser content and remove completed item
+            fetch(window.location.pathname)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    document.getElementById('browser-content').innerHTML =
+                        doc.getElementById('browser-content').innerHTML;
+                    element.remove();
+                })
+                .finally(() => {
+                    // Remove from queue and upload next
+                    uploadQueue.shift();
+                    setTimeout(uploadNext, 500);
+                });
         } else {
-            progressText.textContent = 'Upload Failed!';
-            progressBar.style.backgroundColor = '#dc3545';
+            handleUploadError();
         }
     };
     
-    xhr.onerror = function() {
+    xhr.onerror = handleUploadError;
+    
+    function handleUploadError() {
         progressText.textContent = 'Upload Failed!';
-        progressBar.style.backgroundColor = '#dc3545';
-    };
+        progressBar.style.backgroundColor = 'var(--color-red-600)';
+        element.classList.remove('uploading');
+        uploadQueue.shift();
+        setTimeout(uploadNext, 1000);
+    }
     
     const formData = new FormData();
     formData.append('file', file);
-    
     xhr.send(formData);
 };
 

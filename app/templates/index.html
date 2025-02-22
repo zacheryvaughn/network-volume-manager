@@ -11,8 +11,8 @@
 
     <section id="sidebar">
         <div id="sidebar-top">
-            <input type="file" name="file" id="file" style="display: none">
-            <button class="upload-file-btn" onclick="document.getElementById('file').click()">Upload File</button>
+            <input type="file" name="file" id="file" style="display: none" multiple>
+            <button class="upload-file-btn" onclick="document.getElementById('file').click()">Upload Files</button>
 
             <button class="create-folder-btn" onclick="createFolder()">Create Folder</button>
         </div>
@@ -37,13 +37,21 @@
             </div>
 
             <div id="browser-header-right">
-
+                <button id="view-toggle" class="view-toggle" title="Toggle view">
+                    <svg class="list-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/>
+                    </svg>
+                    <svg class="grid-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M3 3h8v8H3V3zm10 0h8v8h-8V3zm0 10h8v8h-8v-8zM3 13h8v8H3v-8z"/>
+                    </svg>
+                </button>
             </div>
         </div>
         <div id="browser-content">
             <div class="items-list">
                 {% if folders %}
                 <div class="section-title">Folders</div>
+                <div class="items-container">
                 {% for folder in folders %}
                     {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
                     <div class="item">
@@ -57,10 +65,12 @@
                         </div>
                     </div>
                 {% endfor %}
+                </div>
                 {% endif %}
 
                 {% if files %}
                 <div class="section-title">Files</div>
+                <div class="items-container">
                 {% for file in files %}
                     <div class="item">
                         <div class="item-left">
@@ -72,16 +82,25 @@
                         </div>
                     </div>
                 {% endfor %}
+                </div>
                 {% endif %}
             </div>
         </div>
     </main>
 
     <div id="upload-queue">
-        <button id="open-upload-queue-btn">Upload Queue</button>
-        <div class="progress-container" style="display: none;">
+        <button id="close-upload-queue-btn">
+            <span>Upload Queue</span>
+            <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+            </svg>
+        </button>
+        <div class="progress-container">
             <div class="progress-bar" id="progressBar"></div>
-            <div class="progress-text" id="progressText">0%</div>
+            <div class="progress-text" id="progressText"></div>
+        </div>
+        <div id="queue-container">
+            <div id="queued-files"></div>
         </div>
     </div>
 
