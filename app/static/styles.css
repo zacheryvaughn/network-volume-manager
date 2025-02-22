@@ -101,6 +101,7 @@ button:hover {
 .upload-file-btn, .create-folder-btn {
     width: 100%;
     height: 40px;
+    border-radius: 10px;
 }
 /* END */
 
@@ -172,7 +173,7 @@ button:hover {
     justify-content: space-between;
     align-items: center;
     height: 60px;
-    padding: 0px 16px 0px 28px;
+    padding: 0px 18px 0px 28px;
     background-color: var(--color-neutral-800);
     border-radius: 100px;
 }
@@ -182,7 +183,9 @@ button:hover {
     align-items: center;
     gap: 24px;
     width: 100%;
+    min-width: 0;
     height: 100%;
+    margin-right: 30px;
 }
 
 .icon {
@@ -190,15 +193,16 @@ button:hover {
 }
 
 .item-name {
-    display: flex;
-    align-items: center;
-    flex: 1;
+    display: block;
     width: 100%;
     height: 100%;
     color: var(--color-neutral-100);
-    word-break: break-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
     transition: color 0.2s;
+    line-height: 60px;
 }
 
 .item-name:hover {
@@ -222,6 +226,15 @@ button:hover {
 .rename-btn:hover {
     color: var(--color-neutral-100);
     background: none;
+}
+
+.rename-input {
+    width: 100%;
+    background: var(--color-neutral-900);
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    outline: none;
 }
 
 .delete-btn {
@@ -253,6 +266,10 @@ button:hover {
 
     width: 320px;
     min-height: 40px;
+
+    background-color: var(--color-neutral-800);
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
 }
 
 #upload-queue.open {
@@ -264,6 +281,7 @@ button:hover {
     width: 100%;
 
     background-color: var(--color-neutral-700);
+    border-radius: 0;
 }
 
 #open-upload-queue-btn:hover {
@@ -296,29 +314,21 @@ button:hover {
     font-size: 0.875rem;
     font-weight: bold;
 }
+/* END */
 
-
-
-
-
-
-
-
-/* OLD STYLES */
-/* Old styles that need to be modified for integration into the new layout */
-
-input[type="file"] {
-    all: unset;
-}
-
+/* WARNINGS */
 .flash-message {
-    all: unset;
+    padding: 10px 20px;
+    border-radius: 100px;
+    background-color: var(--color-blue-600);
+    color: var(--color-neutral-100);
+    margin-bottom: 10px;
 }
 
 .error-message {
-    all: unset;
-}
-
-.rename-input {
-    all: unset;
+    padding: 10px 20px;
+    border-radius: 100px;
+    background-color: var(--color-red-600);
+    color: var(--color-neutral-100);
+    margin-bottom: 10px;
 }

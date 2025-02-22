@@ -49,10 +49,10 @@
                     <div class="item">
                         <div class="item-left">
                             <span class="icon">📁</span>
-                            <span class="item-name" onclick="location.href='/{{ folder_path }}'">{{ folder }}/</span>
+                            <span class="item-name" data-path="/{{ folder_path }}">{{ folder }}/</span>
                         </div>
                         <div class="item-right">
-                            <button class="rename-btn" onclick="startRename(this.previousElementSibling, true)">Rename</button>
+                            <button class="rename-btn" onclick="startRename(this.parentElement.previousElementSibling.querySelector('.item-name'), true)">Rename</button>
                             <button class="delete-btn" onclick="deleteItem('{{ folder }}', true)">Delete</button>
                         </div>
                     </div>

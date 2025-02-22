@@ -69,8 +69,19 @@ function createFolder() {
     .catch(error => alert('Error creating folder: ' + error));
 }
 
+// Handle folder navigation
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('item-name') && !e.target.querySelector('.rename-input')) {
+        const path = e.target.dataset.path;
+        if (path) {
+            location.href = path;
+        }
+    }
+});
+
 function startRename(element, isFolder) {
     const itemName = element.textContent;
+    element.onclick = null; // Disable navigation while renaming
     const input = document.createElement('input');
     input.type = 'text';
     input.value = isFolder ? itemName.slice(0, -1) : itemName; // Remove trailing slash for folders
