@@ -362,13 +362,108 @@ class FileUploadManager {
     }
 }
 
+class SearchManager {
+    constructor() {
+        this.searchInput = document.getElementById('search-input');
+        this.searchResults = document.getElementById('search-results');
+        this.searchResultsContent = document.querySelector('.search-results-content');
+        this.debounceTimeout = null;
+        this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+        if (!this.searchInput) return;
+
+        this.searchInput.addEventListener('input', () => {
+            clearTimeout(this.debounceTimeout);
+            this.debounceTimeout = setTimeout(() => this.performSearch(), 300);
+        });
+
+        this.searchInput.addEventListener('focus', () => {
+            if (this.searchInput.value) {
+                this.showResults();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!this.searchResults.contains(e.target) && e.target !== this.searchInput) {
+                this.hideResults();
+            }
+        });
+    }
+
+    async performSearch() {
+        const query = this.searchInput.value.trim();
+        
+        if (!query) {
+            this.hideResults();
+            return;
+        }
+
+        try {
+            const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+            const results = await response.json();
+            this.displayResults(results);
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    }
+
+    displayResults(results) {
+        if (!results.files.length && !results.folders.length) {
+            this.hideResults();
+            return;
+        }
+
+        let html = '';
+
+        if (results.folders.length) {
+            results.folders.forEach(folder => {
+                html += `
+                    <div class="search-result-item" onclick="location.href='./${folder.path}'">
+                        <span class="icon">📁</span>
+                        <span class="name">${folder.name}</span>
+                        <span class="path">${folder.path}</span>
+                    </div>
+                `;
+            });
+        }
+
+        if (results.files.length) {
+            results.files.forEach(file => {
+                const dirPath = file.path.split('/').slice(0, -1).join('/');
+                html += `
+                    <div class="search-result-item" onclick="location.href='./${dirPath}'">
+                        <span class="icon">📄</span>
+                        <span class="name">${file.name}</span>
+                        <span class="path">${file.path}</span>
+                    </div>
+                `;
+            });
+        }
+
+        this.searchResultsContent.innerHTML = html;
+        this.showResults();
+    }
+
+    showResults() {
+        this.searchResults.style.display = 'block';
+    }
+
+    hideResults() {
+        this.searchResults.style.display = 'none';
+    }
+}
+
 // Initialize managers
 let uiManager;
 let fileUploadManager;
+let searchManager;
 
 document.addEventListener('DOMContentLoaded', () => {
     uiManager = new UIManager();
     fileUploadManager = new FileUploadManager();
+    searchManager = new SearchManager();
 });
 
 // Expose minimal global interface

@@ -82,6 +82,30 @@ class FileManager:
         
         return contents
 
+    def search_items(self, query: str) -> Dict[str, List[Dict[str, str]]]:
+        """Search for files and folders in the volume"""
+        results = {"files": [], "folders": []}
+        
+        if not self.base_dir.exists():
+            return results
+            
+        def search_directory(path: Path, relative_path: str = ""):
+            try:
+                for item in path.iterdir():
+                    item_relative_path = f"{relative_path}/{item.name}" if relative_path else item.name
+                    if query.lower() in item.name.lower():
+                        if item.is_file():
+                            results["files"].append({"name": item.name, "path": item_relative_path})
+                        else:
+                            results["folders"].append({"name": item.name, "path": item_relative_path})
+                    if item.is_dir():
+                        search_directory(item, item_relative_path)
+            except Exception:
+                pass
+        
+        search_directory(self.base_dir)
+        return results
+
     async def upload_file(self, file: UploadFile, current_path: Path) -> None:
         """Upload a file to the specified directory"""
         self.validator.validate_directory(current_path)
@@ -160,6 +184,12 @@ class FileManager:
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_FOLDER = BASE_DIR / 'test-volume'
 file_manager = FileManager(UPLOAD_FOLDER)
+
+
+@app.get("/search")
+async def search(query: str = ""):
+    """Search for files and folders in the volume"""
+    return file_manager.search_items(query)
 
 @app.get("/")
 @app.get("/{path:path}")

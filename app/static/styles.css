@@ -165,6 +165,74 @@ button:hover {
     height: 100%;
 }
 
+.search-container {
+    position: relative;
+    width: 300px;
+}
+
+#search-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 16px;
+    background-color: var(--color-neutral-800);
+    border: none;
+    border-radius: 8px;
+    outline: none;
+    transition: background-color 0.2s;
+}
+
+#search-input:focus {
+    background-color: var(--color-neutral-700);
+}
+
+.search-results {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 100%;
+    max-height: 400px;
+    background-color: var(--color-neutral-800);
+    border-radius: 8px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.search-results-content {
+    padding: 8px;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: var(--color-neutral-700);
+}
+
+.search-result-item .icon {
+    margin-right: 12px;
+    font-size: 20px;
+}
+
+.search-result-item .name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-result-item .path {
+    font-size: 12px;
+    color: var(--color-neutral-400);
+    margin-left: 8px;
+}
+
 #browser-content {
     padding: 22px 22px 60px 22px;
     overflow: auto;
