@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Volume Manager</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- New Layout -->
+
+    <section id="sidebar">
+        <div id="sidebar-top">
+            <input type="file" name="file" id="file" style="display: none">
+            <button class="upload-file-btn" onclick="document.getElementById('file').click()">Upload File</button>
+
+            <button class="create-folder-btn" onclick="createFolder()">Create Folder</button>
+        </div>
+
+        <div id="sidebar-bottom">
+
+        </div>
+    </section>
+
+    <main id="browser" class="upload-area">
+        <div id="browser-header">
+            <div id="browser-header-left">
+                {% if error %}
+                <div class="error-message">{{ error }}</div>
+                {% else %}
+                <button class="path-part-btn" onclick="location.href='/'">test-volume/</button>
+                {% for part in path_parts %}
+                    {% set path = path_parts[:loop.index]|join('/') %}
+                    <button class="path-part-btn" onclick="location.href='/{{ path }}'">{{ part }}/</button>
+                {% endfor %}
+                {% endif %}
+            </div>
+
+            <div id="browser-header-right">
+
+            </div>
+        </div>
+        <div id="browser-content">
+            <div class="items-list">
+                {% if folders %}
+                <div class="section-title">Folders</div>
+                {% for folder in folders %}
+                    {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
+                    <div class="item">
+                        <div class="item-left">
+                            <span class="icon">📁</span>
+                            <span class="item-name" onclick="location.href='/{{ folder_path }}'">{{ folder }}/</span>
+                        </div>
+                        <div class="item-right">
+                            <button class="rename-btn" onclick="startRename(this.previousElementSibling, true)">Rename</button>
+                            <button class="delete-btn" onclick="deleteItem('{{ folder }}', true)">Delete</button>
+                        </div>
+                    </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if files %}
+                <div class="section-title">Files</div>
+                {% for file in files %}
+                    <div class="item">
+                        <div class="item-left">
+                            <span class="icon">📄</span>
+                            <span class="item-name">{{ file }}</span>
+                        </div>
+                        <div class="item-right">
+                            <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
+                        </div>
+                    </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <div id="upload-queue">
+        <button id="open-upload-queue-btn">Upload Queue</button>
+        <div class="progress-container" style="display: none;">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-text" id="progressText">0%</div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+/* COLOR VARIABLES */
+:root {
+    /* Primary Range (purple) */
+    --color-blue-50: oklch(0.97 0.014 254.604);
+    --color-blue-100: oklch(0.932 0.032 255.585);
+    --color-blue-200: oklch(0.882 0.059 254.128);
+    --color-blue-300: oklch(0.809 0.105 251.813);
+    --color-blue-400: oklch(0.707 0.165 254.624);
+    --color-blue-500: oklch(0.623 0.214 259.815);
+    --color-blue-600: oklch(0.546 0.245 262.881);
+    --color-blue-700: oklch(0.488 0.243 264.376);
+    --color-blue-800: oklch(0.424 0.199 265.638);
+    --color-blue-900: oklch(0.379 0.146 265.522);
+    --color-blue-950: oklch(0.282 0.091 267.935);
+
+    /* Background & Text (gray) */
+    --color-neutral-50: oklch(0.985 0 0);
+    --color-neutral-100: oklch(0.97 0 0);
+    --color-neutral-200: oklch(0.922 0 0);
+    --color-neutral-300: oklch(0.87 0 0);
+    --color-neutral-400: oklch(0.708 0 0);
+    --color-neutral-500: oklch(0.556 0 0);
+    --color-neutral-600: oklch(0.439 0 0);
+    --color-neutral-700: oklch(0.371 0 0);
+    --color-neutral-800: oklch(0.269 0 0);
+    --color-neutral-900: oklch(0.205 0 0);
+    --color-neutral-950: oklch(0.145 0 0);
+
+    /* Danger Range (red) */
+    --color-red-50: oklch(0.971 0.013 17.38);
+    --color-red-100: oklch(0.936 0.032 17.717);
+    --color-red-200: oklch(0.885 0.062 18.334);
+    --color-red-300: oklch(0.808 0.114 19.571);
+    --color-red-400: oklch(0.704 0.191 22.216);
+    --color-red-500: oklch(0.637 0.237 25.331);
+    --color-red-600: oklch(0.577 0.245 27.325);
+    --color-red-700: oklch(0.505 0.213 27.518);
+    --color-red-800: oklch(0.444 0.177 26.899);
+    --color-red-900: oklch(0.396 0.141 25.723);
+    --color-red-950: oklch(0.258 0.092 26.042);
+}
+/* END */
+
+
+/* UNIVERSAL, HTML, BODY */
+/* primary styles that affect the entire document */
+* {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    font-weight: 200;
+    color: var(--color-neutral-100);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    position: relative;
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--color-neutral-950);
+}
+/* END */
+
+/* DEFAULT STYLES */
+/* setting default styles for standard html elements */
+button {
+    border: none;
+    border-radius: 100px;
+    background-color: var(--color-blue-600);
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: var(--color-blue-500);
+}
+/* END */
+
+
+/* LEFT SIDEBAR CONTROLS */
+/* positioned on left of viewport, contains various controls */
+#sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 280px;
+    height: 100%;
+    padding: 18px;
+    background-color: var(--color-neutral-900);
+}
+
+#sidebar-top, #sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.upload-file-btn, .create-folder-btn {
+    width: 100%;
+    height: 40px;
+}
+/* END */
+
+
+/* FILE BROWSER AREA */
+/* the main area for viewing files/folders and path navigation */
+#browser {
+    display: flex;
+    flex-direction: column;
+    width: calc(100% - 280px);
+    height: 100%;
+}
+
+#browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 60px;
+    padding: 0px 22px;
+}
+
+#browser-header-left {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    height: 100%;
+}
+
+.path-part-btn {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    transition: color 0.2s;
+}
+
+.path-part-btn:hover {
+    color: var(--color-blue-500);
+    background-color: transparent;
+}
+
+#browser-header-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    height: 100%;
+}
+
+#browser-content {
+    padding: 22px;
+}
+
+.items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--color-neutral-300);
+}
+
+.item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    padding: 0px 16px 0px 28px;
+    background-color: var(--color-neutral-800);
+    border-radius: 100px;
+}
+
+.item-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    width: 100%;
+    height: 100%;
+}
+
+.icon {
+    font-size: 26px;
+}
+
+.item-name {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    color: var(--color-neutral-100);
+    word-break: break-all;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.item-name:hover {
+    color: var(--color-blue-500);
+}
+
+.item-right {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    height: 100%;
+}
+
+.rename-btn {
+    font-size: 14px;
+    color: var(--color-neutral-400);
+    background-color: transparent;
+    transition: color 0.2s;
+}
+
+.rename-btn:hover {
+    color: var(--color-neutral-100);
+    background: none;
+}
+
+.delete-btn {
+    font-size: 14px;
+    color: var(--color-red-400);
+    height: 30px;
+    padding: 0px 18px;
+    background-color: transparent;
+    border: 1px solid var(--color-red-400);
+    transition: all 0.2s;
+}
+
+.delete-btn:hover {
+    color: var(--color-neutral-900);
+    background-color: var(--color-red-400);
+}
+/* END */
+
+
+/* UPLOAD QUEUE WINDOW */
+/* positioned at the bottom right, for viewing upload queue and progress */
+#upload-queue {
+    position: absolute;
+    bottom: 0px;
+    right: 40px;
+
+    display: flex;
+    flex-direction: column;
+
+    width: 320px;
+    min-height: 40px;
+}
+
+#upload-queue.open {
+    height: auto;
+}
+
+#open-upload-queue-btn {
+    height: 40px;
+    width: 100%;
+
+    background-color: var(--color-neutral-700);
+}
+
+#open-upload-queue-btn:hover {
+    background-color: var(--color-neutral-600);
+}
+
+/* Not yet modified */
+.progress-container {
+    margin-top: 1rem;
+    background-color: var(--color-neutral-700);
+    border-radius: 100px;
+    overflow: hidden;
+    position: relative;
+    height: 20px;
+}
+
+.progress-bar {
+    width: 0;
+    height: 100%;
+    background-color: var(--color-blue-600);
+    transition: width 0.1s linear;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--color-neutral-100);
+    font-size: 0.875rem;
+    font-weight: bold;
+}
+
+
+
+
+
+
+
+
+/* OLD STYLES */
+/* Old styles that need to be modified for integration into the new layout */
+
+input[type="file"] {
+    all: unset;
+}
+
+.flash-message {
+    all: unset;
+}
+
+.error-message {
+    all: unset;
+}
+
+.rename-input {
+    all: unset;
+}
