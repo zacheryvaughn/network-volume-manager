@@ -66,7 +66,7 @@
                             <span class="item-name" data-path="/{{ folder_path }}">{{ folder }}/</span>
                         </div>
                         <div class="item-right">
-                            <button class="rename-btn" onclick="startRename(this.parentElement.previousElementSibling.querySelector('.item-name'), true)">Rename</button>
+                            <button class="rename-btn" onclick="console.log('Rename clicked for folder:', this.closest('.item').querySelector('.item-name')); startRename(this.closest('.item').querySelector('.item-name'), true)">Rename</button>
                             <button class="delete-btn" onclick="deleteItem('{{ folder }}', true)">Delete</button>
                         </div>
                     </div>
@@ -84,7 +84,7 @@
                             <span class="item-name">{{ file }}</span>
                         </div>
                         <div class="item-right">
-                            <button class="rename-btn" onclick="startRename(this.parentElement.previousElementSibling.querySelector('.item-name'), false)">Rename</button>
+                            <button class="rename-btn" onclick="console.log('Rename clicked for file:', this.closest('.item').querySelector('.item-name')); startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
                             <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
                         </div>
                     </div>

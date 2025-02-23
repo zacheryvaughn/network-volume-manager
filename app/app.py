@@ -1,9 +1,8 @@
-from fastapi import FastAPI, APIRouter, Request, UploadFile, File, HTTPException, Form
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Form
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import aiofiles
-import os
 import shutil
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -89,19 +88,29 @@ class FileManager:
         if not self.base_dir.exists():
             return results
             
-        def search_directory(path: Path, relative_path: str = ""):
+        def search_directory(path: Path, relative_path: str = "") -> None:
             try:
                 for item in path.iterdir():
                     item_relative_path = f"{relative_path}/{item.name}" if relative_path else item.name
+                    
+                    # Case-insensitive search
                     if query.lower() in item.name.lower():
-                        if item.is_file():
-                            results["files"].append({"name": item.name, "path": item_relative_path})
-                        else:
-                            results["folders"].append({"name": item.name, "path": item_relative_path})
+                        result_item = {"name": item.name, "path": item_relative_path}
+                        results["files" if item.is_file() else "folders"].append(result_item)
+                    
+                    # Continue searching in subdirectories
                     if item.is_dir():
-                        search_directory(item, item_relative_path)
-            except Exception:
+                        try:
+                            search_directory(item, item_relative_path)
+                        except PermissionError:
+                            # Skip directories we can't access
+                            pass
+            except PermissionError:
+                # Skip directories we can't access
                 pass
+            except Exception as e:
+                # Log other errors but continue searching
+                print(f"Error searching directory {path}: {str(e)}")
         
         search_directory(self.base_dir)
         return results
@@ -113,13 +122,29 @@ class FileManager:
         if not file:
             FileSystemError.raise_error(FileSystemError.NO_FILE_UPLOADED)
         
+        file_path = current_path / file.filename
+        if file_path.exists():
+            FileSystemError.raise_error(FileSystemError.ITEM_EXISTS)
+            
         try:
-            file_path = current_path / file.filename
-            async with aiofiles.open(str(file_path), 'wb') as out_file:
+            # Create a temporary file first
+            temp_path = file_path.with_suffix('.tmp')
+            async with aiofiles.open(str(temp_path), 'wb') as out_file:
                 content = await file.read()
                 await out_file.write(content)
+            
+            # Rename temporary file to final name
+            temp_path.rename(file_path)
+        except IOError as e:
+            # Clean up temporary file if it exists
+            if temp_path.exists():
+                temp_path.unlink()
+            FileSystemError.raise_error((f"IO Error during upload: {str(e)}", 500))
         except Exception as e:
-            FileSystemError.raise_error((str(e), 500))
+            # Clean up temporary file if it exists
+            if temp_path.exists():
+                temp_path.unlink()
+            FileSystemError.raise_error((f"Error during upload: {str(e)}", 500))
 
     def create_folder(self, current_path: Path) -> Dict[str, str]:
         """Create a new folder with an auto-generated name"""
@@ -162,12 +187,27 @@ class FileManager:
         
         try:
             if item_path.is_file():
-                item_path.unlink()
+                try:
+                    item_path.unlink()
+                except PermissionError:
+                    FileSystemError.raise_error((f"Permission denied to delete file: {item_name}", 403))
+                except FileNotFoundError:
+                    # File was already deleted
+                    pass
             else:
-                shutil.rmtree(item_path)
+                try:
+                    shutil.rmtree(item_path)
+                except PermissionError:
+                    FileSystemError.raise_error((f"Permission denied to delete folder: {item_name}", 403))
+                except FileNotFoundError:
+                    # Folder was already deleted
+                    pass
+                except shutil.Error as e:
+                    FileSystemError.raise_error((f"Error deleting folder contents: {str(e)}", 500))
+            
             return {"message": f"{item_name} deleted successfully"}
         except Exception as e:
-            FileSystemError.raise_error((str(e), 500))
+            FileSystemError.raise_error((f"Unexpected error during deletion: {str(e)}", 500))
 
     def _generate_unique_name(self, path: Path, base_name: str) -> str:
         """Generate a unique name for a new folder"""
