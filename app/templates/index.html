@@ -20,6 +20,19 @@
             <button class="create-folder-btn" onclick="createFolder()">Create Folder</button>
         </div>
         <div id="sidebar-bottom">
+            <div class="directory-size">
+                Used Space:
+                {% set units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] %}
+                {% set i = namespace(value=0) %}
+                {% set size = namespace(value=total_size) %}
+                {% for _ in units %}
+                    {% if size.value > 1024 and not loop.last %}
+                        {% set size.value = size.value / 1024 %}
+                        {% set i.value = i.value + 1 %}
+                    {% endif %}
+                {% endfor %}
+                {{ '{:.1f}'.format(size.value) }}{{ units[i.value] }}
+            </div>
             <div class="directory-input-container">
                 <input type="text" id="directory-input" placeholder="Enter directory path..." value="test-volume/">
                 <button id="change-directory-btn" class="icon-button locked">
@@ -48,7 +61,12 @@
 
             <div id="browser-header-right">
                 <button id="view-toggle" class="view-toggle" title="Toggle view">
-                    <span class="view-icon">List View</span>
+                    <svg class="view-icon grid-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                        <path d="M128 136c0-22.1-17.9-40-40-40L40 96C17.9 96 0 113.9 0 136l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm0 192c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm32-192l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40zM288 328c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm32-192l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40zM448 328c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48z"/>
+                    </svg>
+                    <svg class="view-icon list-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                        <path d="M32 288c-17.7 0-32 14.3-32 32s14.3 32 32 32l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 288zm0-128c-17.7 0-32 14.3-32 32s14.3 32 32 32l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 160z"/>
+                    </svg>
                 </button>
             </div>
         </div>
@@ -58,15 +76,20 @@
                 <div class="section-title">Folders</div>
                 <div class="items-container">
                 {% for folder in folders %}
-                    {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
+                    {% set folder_path = current_path ~ '/' ~ folder.name if current_path else folder.name %}
                     <div class="item">
                         <div class="item-left">
-                            <span class="icon">📁</span>
-                            <span class="item-name" data-path="/{{ folder_path }}">{{ folder }}/</span>
+                            <span class="icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                                    <path d="M448 480L64 480c-35.3 0-64-28.7-64-64L0 192l512 0 0 224c0 35.3-28.7 64-64 64zm64-320L0 160 0 96C0 60.7 28.7 32 64 32l128 0c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8l160 0c35.3 0 64 28.7 64 64z"/>
+                                </svg>
+                            </span>
+                            <span class="item-name" data-path="/{{ folder_path }}">{{ folder.name }}/</span>
+                            <span class="item-size">{{ folder.file_count }} file{% if folder.file_count != 1 %}s{% endif %}</span>
                         </div>
                         <div class="item-right">
                             <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), true)">Rename</button>
-                            <button class="delete-btn" onclick="deleteItem('{{ folder }}', true)">Delete</button>
+                            <button class="delete-btn" onclick="deleteItem('{{ folder.name }}', true)">Delete</button>
                         </div>
                     </div>
                 {% endfor %}
@@ -79,12 +102,28 @@
                 {% for file in files %}
                     <div class="item">
                         <div class="item-left">
-                            <span class="icon">📄</span>
-                            <span class="item-name">{{ file }}</span>
+                            <span class="icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512">
+                                    <path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 288c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128z"/>
+                                </svg>
+                            </span>
+                            <span class="item-name">{{ file.name }}</span>
+                            <span class="item-size">
+                                {% set units = ['B', 'KB', 'MB', 'GB', 'TB'] %}
+                                {% set i = namespace(value=0) %}
+                                {% set size = namespace(value=file.size) %}
+                                {% for _ in units %}
+                                    {% if size.value > 1024 and not loop.last %}
+                                        {% set size.value = size.value / 1024 %}
+                                        {% set i.value = i.value + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ '{:.1f}'.format(size.value) }}{{ units[i.value] }}
+                            </span>
                         </div>
                         <div class="item-right">
                             <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
-                            <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
+                            <button class="delete-btn" onclick="deleteItem('{{ file.name }}', false)">Delete</button>
                         </div>
                     </div>
                 {% endfor %}

@@ -1,4 +1,3 @@
-// Core API and error handling
 const API = {
     getCurrentPath: () => window.location.pathname.substring(1),
     
@@ -6,76 +5,78 @@ const API = {
         const response = await fetch(url, options);
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
-            throw new Error(data.detail || response.statusText || 'Request failed');
+            throw new Error(data.detail || 'Request failed');
         }
-        return response.headers.get('content-type')?.includes('application/json') ? 
+        return response.headers.get('content-type')?.includes('application/json') ?
             response.json() : response;
     },
 
-    createFolder: (path) => API.request(`/create-folder/${path}`, { method: 'POST' }),
-    deleteItem: (path, itemName) => {
+    createFormRequest: (path, data) => {
         const formData = new FormData();
-        formData.append('item_name', itemName);
-        return API.request(`/delete/${path}`, { method: 'POST', body: formData });
+        Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+        return API.request(path, { method: 'POST', body: formData });
     },
-    renameItem: (path, oldName, newName) => {
-        const formData = new FormData();
-        formData.append('old_name', oldName);
-        formData.append('new_name', newName);
-        return API.request(`/rename/${path}`, { method: 'POST', body: formData });
-    }
+
+    createFolder: (path) => API.request(`/create-folder/${path}`, { method: 'POST' }),
+    deleteItem: (path, itemName) => API.createFormRequest(`/delete/${path}`, { item_name: itemName }),
+    renameItem: (path, oldName, newName) => API.createFormRequest(`/rename/${path}`, { old_name: oldName, new_name: newName }),
+    getTotalSize: () => API.request('/total-size')
 };
 
-// UI Manager handles all UI operations
 class UIManager {
     constructor() {
-        this.initializeComponents();
-        this.initializeEventListeners();
+        this.initElements();
+        this.initEventListeners();
         this.uploadQueue = [];
         this.isUploading = false;
+        this.viewMode = localStorage.getItem('fileViewMode') || 'list';
+        this.updateViewMode(this.viewMode, true);
     }
 
-    initializeComponents() {
-        // Cache DOM elements
+    initElements() {
         this.elements = {
             itemsList: document.getElementById('items-list'),
             viewToggle: document.getElementById('view-toggle'),
-            viewToggleText: document.querySelector('#view-toggle .view-icon'),
             uploadQueue: document.getElementById('upload-queue'),
             progressBar: document.getElementById('progressBar'),
             progressText: document.getElementById('progressText'),
             queuedFiles: document.getElementById('queued-files'),
             searchInput: document.getElementById('search-input'),
             searchResults: document.getElementById('search-results'),
-            searchContent: document.querySelector('.search-results-content')
+            searchContent: document.querySelector('.search-results-content'),
+            directoryInput: document.getElementById('directory-input'),
+            changeDirBtn: document.getElementById('change-directory-btn')
         };
-
-        // Initialize view mode
-        this.viewMode = localStorage.getItem('fileViewMode') || 'list';
-        this.updateViewMode(this.viewMode, true); // true = skip saving to localStorage
     }
 
-    initializeEventListeners() {
-        // View toggle
-        if (this.elements.viewToggle) {
-            this.elements.viewToggle.addEventListener('click', () => {
-                const newMode = this.viewMode === 'grid' ? 'list' : 'grid';
-                this.updateViewMode(newMode);
-            });
-        }
+    initEventListeners() {
+        this.setupViewToggle();
+        this.setupFileUpload();
+        this.setupSearch();
+        this.setupDirectoryChange();
+        this.setupItemClickHandler();
+        this.setupUploadQueueToggle();
+    }
 
-        // File upload
+    setupViewToggle() {
+        if (this.elements.viewToggle) {
+            this.elements.viewToggle.addEventListener('click', () => 
+                this.updateViewMode(this.viewMode === 'grid' ? 'list' : 'grid'));
+        }
+    }
+
+    setupFileUpload() {
         const fileInput = document.getElementById('file');
         if (fileInput) {
             const newInput = fileInput.cloneNode(true);
             fileInput.parentNode.replaceChild(newInput, fileInput);
             newInput.addEventListener('change', (e) => this.handleFileSelection(e.target.files));
         }
+    }
 
-        // Search
+    setupSearch() {
         if (this.elements.searchInput) {
-            this.elements.searchInput.addEventListener('input', 
-                debounce(() => this.performSearch(), 300));
+            this.elements.searchInput.addEventListener('input', debounce(() => this.performSearch(), 300));
             this.elements.searchInput.addEventListener('focus', () => {
                 if (this.elements.searchInput.value) this.showSearchResults();
             });
@@ -86,15 +87,21 @@ class UIManager {
                 }
             });
         }
+    }
 
-        // Upload queue toggle
-        const closeQueueBtn = document.getElementById('close-upload-queue-btn');
-        if (closeQueueBtn) {
-            closeQueueBtn.addEventListener('click', () => 
-                this.elements.uploadQueue.classList.toggle('closed'));
+    setupDirectoryChange() {
+        if (this.elements.directoryInput && this.elements.changeDirBtn) {
+            const baseDirBtn = document.querySelector('.path-part-btn');
+            if (baseDirBtn) {
+                this.elements.directoryInput.value = baseDirBtn.textContent.trim();
+                this.elements.directoryInput.disabled = true;
+                this.elements.changeDirBtn.classList.add('locked');
+            }
+            this.elements.changeDirBtn.addEventListener('click', () => this.handleDirectoryChange());
         }
+    }
 
-        // Item click handling
+    setupItemClickHandler() {
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('item-name') && 
                 !e.target.querySelector('.rename-input')) {
@@ -104,46 +111,57 @@ class UIManager {
         });
     }
 
+    setupUploadQueueToggle() {
+        const closeQueueBtn = document.getElementById('close-upload-queue-btn');
+        if (closeQueueBtn) {
+            closeQueueBtn.addEventListener('click', () => 
+                this.elements.uploadQueue.classList.toggle('closed'));
+        }
+    }
+
     updateViewMode(mode, skipSave = false) {
         if (!this.elements.itemsList || !this.elements.viewToggle) return;
-
-        // Update state
+        
         this.viewMode = mode;
-        if (!skipSave) {
-            localStorage.setItem('fileViewMode', mode);
-        }
-
-        // Update UI
+        if (!skipSave) localStorage.setItem('fileViewMode', mode);
+        
         this.elements.itemsList.classList.toggle('grid-view', mode === 'grid');
-        this.elements.viewToggleText.textContent = mode === 'grid' ? 'List View' : 'Grid View';
+        const [gridIcon, listIcon] = [
+            this.elements.viewToggle.querySelector('.grid-icon'),
+            this.elements.viewToggle.querySelector('.list-icon')
+        ];
+        gridIcon.style.display = mode === 'grid' ? 'none' : 'block';
+        listIcon.style.display = mode === 'grid' ? 'block' : 'none';
+    }
+
+    async updateTotalSize() {
+        try {
+            const { total_size } = await API.getTotalSize();
+            const dirSize = document.querySelector('.directory-size');
+            if (dirSize) {
+                dirSize.textContent = `Used Space: ${formatFileSize(total_size)}`;
+            }
+        } catch (error) {
+            console.error('Error updating total size:', error);
+        }
     }
 
     async refreshContent() {
         try {
             const response = await fetch(window.location.pathname);
             const html = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+            const doc = new DOMParser().parseFromString(html, 'text/html');
             const newContent = doc.getElementById('browser-content');
             
             if (newContent) {
                 document.getElementById('browser-content').innerHTML = newContent.innerHTML;
-                
-                // Re-cache the items list element as it's been replaced
                 this.elements.itemsList = document.getElementById('items-list');
+                this.updateViewMode(this.viewMode, true);
                 
-                // Reapply the current view mode
-                if (this.elements.itemsList) {
-                    this.updateViewMode(this.viewMode, true);
-                }
-
-                // Update directory input with new base directory
-                const directoryInput = document.getElementById('directory-input');
                 const baseDirBtn = document.querySelector('.path-part-btn');
-                if (directoryInput && baseDirBtn) {
-                    directoryInput.value = baseDirBtn.textContent.trim();
+                if (this.elements.directoryInput && baseDirBtn) {
+                    this.elements.directoryInput.value = baseDirBtn.textContent.trim();
                 }
-
                 return true;
             }
             return false;
@@ -207,6 +225,7 @@ class UIManager {
                 this.processUploadQueue();
             }, 300);
             await this.refreshContent();
+            await this.updateTotalSize();
         } catch (error) {
             alert(error.message);
             element.remove();
@@ -263,24 +282,22 @@ class UIManager {
                 return;
             }
 
-            let html = results.folders.map(folder => `
-                <div class="search-result-item" onclick="location.href='./${folder.path}'">
-                    <span class="icon">📁</span>
-                    <span class="name">${folder.name}</span>
-                    <span class="path">${folder.path}</span>
+            const createResultItem = (item, isFolder) => `
+                <div class="search-result-item" onclick="location.href='./${item.path}'">
+                    <span class="icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${isFolder ? '512 512' : '384 512'}">
+                            <path d="${isFolder ? 
+                                'M448 480L64 480c-35.3 0-64-28.7-64-64L0 192l512 0 0 224c0 35.3-28.7 64-64 64zm64-320L0 160 0 96C0 60.7 28.7 32 64 32l128 0c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8l160 0c35.3 0 64 28.7 64 64z' : 
+                                'M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 288c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128z'}"/>
+                        </svg>
+                    </span>
+                    <span class="name">${item.name}</span>
+                    <span class="path">${item.path}</span>
                 </div>
-            `).join('');
+            `;
 
-            html += results.files.map(file => {
-                const dirPath = file.path.split('/').slice(0, -1).join('/');
-                return `
-                    <div class="search-result-item" onclick="location.href='./${dirPath}'">
-                        <span class="icon">📄</span>
-                        <span class="name">${file.name}</span>
-                        <span class="path">${file.path}</span>
-                    </div>
-                `;
-            }).join('');
+            const html = results.folders.map(folder => createResultItem(folder, true)).join('') +
+                        results.files.map(file => createResultItem(file, false)).join('');
 
             this.elements.searchContent.innerHTML = html;
             this.showSearchResults();
@@ -372,13 +389,46 @@ class UIManager {
         try {
             await API.deleteItem(API.getCurrentPath(), name);
             await this.refreshContent();
+            await this.updateTotalSize();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async handleDirectoryChange() {
+        if (this.elements.directoryInput.disabled) {
+            this.elements.directoryInput.disabled = false;
+            this.elements.changeDirBtn.classList.remove('locked');
+            return;
+        }
+
+        const newPath = this.elements.directoryInput.value.trim();
+        if (!newPath) {
+            alert('Please enter a directory path');
+            return;
+        }
+
+        try {
+            const response = await fetch('/change-directory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: newPath })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Failed to change directory');
+            }
+
+            this.elements.directoryInput.disabled = true;
+            this.elements.changeDirBtn.classList.add('locked');
+            window.location.href = '/';
         } catch (error) {
             alert(error.message);
         }
     }
 }
 
-// Utility functions
 function formatFileSize(bytes) {
     if (typeof bytes !== 'number' || isNaN(bytes)) return '0 B';
     if (bytes === 0) return '0 B';
@@ -398,75 +448,16 @@ function debounce(func, wait) {
     };
 }
 
-// Directory change handler
-async function changeDirectory() {
-    const directoryInput = document.getElementById('directory-input');
-    const changeDirBtn = document.getElementById('change-directory-btn');
-    
-    // Toggle lock state if input is disabled
-    if (directoryInput.disabled) {
-        directoryInput.disabled = false;
-        changeDirBtn.classList.remove('locked');
-        return;
-    }
-
-    const newPath = directoryInput.value.trim();
-    if (!newPath) {
-        alert('Please enter a directory path');
-        return;
-    }
-
-    try {
-        const response = await fetch('/change-directory', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ path: newPath })
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Failed to change directory');
-        }
-
-        // Lock the input after successful directory change
-        directoryInput.disabled = true;
-        changeDirBtn.classList.add('locked');
-
-        // Redirect to root of new directory
-        window.location.href = '/';
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-// Initialize UI
 let ui;
-document.addEventListener('DOMContentLoaded', () => {
-    ui = new UIManager();
-    
-    // Initialize directory input and button
-    const directoryInput = document.getElementById('directory-input');
-    const changeDirBtn = document.getElementById('change-directory-btn');
-    const baseDirBtn = document.querySelector('.path-part-btn');
+document.addEventListener('DOMContentLoaded', () => ui = new UIManager());
 
-    // Set up directory input and lock state
-    if (directoryInput && baseDirBtn && changeDirBtn) {
-        directoryInput.value = baseDirBtn.textContent.trim();
-        directoryInput.disabled = true;
-        changeDirBtn.classList.add('locked');
-        changeDirBtn.addEventListener('click', changeDirectory);
-    }
-});
-
-// Global interface
 window.startRename = (element, isFolder) => ui?.startRename(element, isFolder);
 window.deleteItem = (name, isFolder) => ui?.deleteItem(name, isFolder);
 window.createFolder = async () => {
     try {
         await API.createFolder(API.getCurrentPath());
         await ui?.refreshContent();
+        await ui?.updateTotalSize();
     } catch (error) {
         alert(error.message);
     }
