@@ -446,3 +446,55 @@ button:hover {
     color: #fff;
     margin-bottom: 10px;
 }
+
+/* Directory Input */
+.directory-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#directory-input {
+    flex: 1;
+    height: 40px;
+    padding: 10px;
+    background-color: #DDDDDD;
+    border: 1px solid transparent;
+    outline: none;
+}
+
+#directory-input:focus {
+    border-color: #333333;
+}
+
+#directory-input:disabled {
+    background-color: #CCCCCC;
+    cursor: not-allowed;
+}
+
+#change-directory-btn {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lock-icon {
+    width: 20px;
+    height: 20px;
+    fill: white;
+}
+
+.locked-path, .unlocked-path {
+    display: none;
+}
+
+#change-directory-btn.locked .locked-path {
+    display: block;
+}
+
+#change-directory-btn:not(.locked) .unlocked-path {
+    display: block;
+}

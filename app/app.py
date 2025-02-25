@@ -165,6 +165,38 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / 'test-volume'
 fs = FileSystem(UPLOAD_DIR)
 
+@app.post("/change-directory")
+async def change_directory(request: Request):
+    """Change the base directory for file operations"""
+    try:
+        data = await request.json()
+        new_path = data.get('path', '').strip()
+        if not new_path:
+            raise HTTPException(status_code=400, detail="Path cannot be empty")
+
+        # Convert to absolute path if relative
+        if not Path(new_path).is_absolute():
+            new_path = BASE_DIR / new_path
+
+        new_path = Path(new_path).resolve()
+        
+        # Validate the new directory
+        if not new_path.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+        if not new_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path must be a directory")
+            
+        # Update the file system manager
+        global UPLOAD_DIR, fs
+        UPLOAD_DIR = new_path
+        fs = FileSystem(UPLOAD_DIR)
+        
+        return {"message": "Directory changed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Route handlers
 @app.get("/search")
 async def search(query: str = ""):
@@ -188,6 +220,7 @@ async def index(request: Request, path: str = ""):
         {
             "request": request,
             "current_path": path,
+            "base_dir_name": UPLOAD_DIR.name,
             **contents
         }
     )

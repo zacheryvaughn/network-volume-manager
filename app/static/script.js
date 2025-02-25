@@ -136,6 +136,14 @@ class UIManager {
                 if (this.elements.itemsList) {
                     this.updateViewMode(this.viewMode, true);
                 }
+
+                // Update directory input with new base directory
+                const directoryInput = document.getElementById('directory-input');
+                const baseDirBtn = document.querySelector('.path-part-btn');
+                if (directoryInput && baseDirBtn) {
+                    directoryInput.value = baseDirBtn.textContent.trim();
+                }
+
                 return true;
             }
             return false;
@@ -390,10 +398,66 @@ function debounce(func, wait) {
     };
 }
 
+// Directory change handler
+async function changeDirectory() {
+    const directoryInput = document.getElementById('directory-input');
+    const changeDirBtn = document.getElementById('change-directory-btn');
+    
+    // Toggle lock state if input is disabled
+    if (directoryInput.disabled) {
+        directoryInput.disabled = false;
+        changeDirBtn.classList.remove('locked');
+        return;
+    }
+
+    const newPath = directoryInput.value.trim();
+    if (!newPath) {
+        alert('Please enter a directory path');
+        return;
+    }
+
+    try {
+        const response = await fetch('/change-directory', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ path: newPath })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to change directory');
+        }
+
+        // Lock the input after successful directory change
+        directoryInput.disabled = true;
+        changeDirBtn.classList.add('locked');
+
+        // Redirect to root of new directory
+        window.location.href = '/';
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
 // Initialize UI
 let ui;
 document.addEventListener('DOMContentLoaded', () => {
     ui = new UIManager();
+    
+    // Initialize directory input and button
+    const directoryInput = document.getElementById('directory-input');
+    const changeDirBtn = document.getElementById('change-directory-btn');
+    const baseDirBtn = document.querySelector('.path-part-btn');
+
+    // Set up directory input and lock state
+    if (directoryInput && baseDirBtn && changeDirBtn) {
+        directoryInput.value = baseDirBtn.textContent.trim();
+        directoryInput.disabled = true;
+        changeDirBtn.classList.add('locked');
+        changeDirBtn.addEventListener('click', changeDirectory);
+    }
 });
 
 // Global interface
