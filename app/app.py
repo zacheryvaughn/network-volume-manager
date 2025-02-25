@@ -5,208 +5,243 @@ from fastapi.templating import Jinja2Templates
 import aiofiles
 import shutil
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
+# Create FastAPI app
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 class FileSystem:
+    """Handles file system operations and validation"""
+    
+    # Error definitions
+    ERRORS = {
+        'VOLUME_NOT_MOUNTED': ("Volume not mounted", 400),
+        'PATH_NOT_FOUND': ("Path not found", 404),
+        'ACCESS_DENIED': ("Access denied", 403),
+        'DIRECTORY_NOT_FOUND': ("Directory not found", 404),
+        'NO_FILE_UPLOADED': ("No file uploaded", 400),
+        'ITEM_EXISTS': ("An item with this name already exists", 400)
+    }
+
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.error_map = {
-            'volume': (400, "Volume not mounted"),
-            'path': (404, "Path not found"),
-            'access': (403, "Access denied"),
-            'exists': (400, "Item already exists"),
-            'upload': (400, "No file uploaded")
-        }
 
-    def raise_error(self, key: str, detail: Optional[str] = None):
-        code, msg = self.error_map[key]
-        raise HTTPException(status_code=code, detail=detail or msg)
+    def raise_error(self, error_key: str, detail: Optional[str] = None):
+        """Raise an HTTP exception with predefined error messages"""
+        message, status_code = self.ERRORS[error_key]
+        raise HTTPException(status_code=status_code, detail=detail or message)
 
-    def validate(self, path: Path, check_exists: bool = True, require_dir: bool = False) -> None:
+    def validate_path(self, path: Path, require_dir: bool = False) -> None:
+        """Validate path exists and is within base directory"""
         if not self.base_dir.exists():
-            self.raise_error('volume')
-        if check_exists and not path.exists():
-            self.raise_error('path')
+            self.raise_error('VOLUME_NOT_MOUNTED')
+        if not path.exists():
+            self.raise_error('PATH_NOT_FOUND')
         if not str(path).startswith(str(self.base_dir)):
-            self.raise_error('access')
+            self.raise_error('ACCESS_DENIED')
         if require_dir and not path.is_dir():
-            self.raise_error('path')
+            self.raise_error('DIRECTORY_NOT_FOUND')
 
-    def get_size(self, path: Path) -> int:
-        try:
-            return sum(f.stat().st_size for f in path.rglob('*') if f.is_file())
-        except (PermissionError, OSError):
-            return 0
-
-    def count_files(self, path: Path) -> int:
-        try:
-            return sum(1 for _ in path.rglob('*') if _.is_file())
-        except (PermissionError, OSError):
-            return 0
-
-    def get_contents(self, path: Path) -> Dict:
-        self.validate(path, require_dir=True)
+    def get_contents(self, path: Path) -> Dict[str, List[str]]:
+        """Get directory contents and path parts"""
+        self.validate_path(path, require_dir=True)
+        
         contents = {"files": [], "folders": [], "path_parts": []}
         
         for item in path.iterdir():
-            item_data = {"name": item.name}
-            if item.is_file():
-                item_data["size"] = item.stat().st_size
-                contents["files"].append(item_data)
-            else:
-                item_data["file_count"] = self.count_files(item)
-                contents["folders"].append(item_data)
-
+            contents["files" if item.is_file() else "folders"].append(item.name)
+        
         rel_path = path.relative_to(self.base_dir)
         contents["path_parts"] = str(rel_path).split('/') if str(rel_path) != '.' else []
-        contents["total_size"] = self.get_size(path)
+        
         return contents
 
-    def search(self, query: str) -> Dict:
+    def search(self, query: str) -> Dict[str, List[Dict[str, str]]]:
+        """Search for files and folders recursively"""
         results = {"files": [], "folders": []}
         if not self.base_dir.exists():
             return results
 
-        def search_dir(path: Path, rel_path: str = ""):
+        def search_dir(path: Path, rel_path: str = "") -> None:
             try:
                 for item in path.iterdir():
                     item_rel_path = f"{rel_path}/{item.name}" if rel_path else item.name
+                    
                     if query.lower() in item.name.lower():
                         results["files" if item.is_file() else "folders"].append({
                             "name": item.name,
                             "path": item_rel_path
                         })
+                    
                     if item.is_dir():
-                        search_dir(item, item_rel_path)
-            except PermissionError:
-                pass
+                        try:
+                            search_dir(item, item_rel_path)
+                        except PermissionError:
+                            pass
+            except (PermissionError, Exception) as e:
+                if not isinstance(e, PermissionError):
+                    print(f"Error searching directory {path}: {str(e)}")
 
         search_dir(self.base_dir)
         return results
 
     async def upload(self, file: UploadFile, path: Path) -> None:
-        self.validate(path, require_dir=True)
+        """Upload a file with atomic operation"""
+        self.validate_path(path, require_dir=True)
+        
         if not file:
-            self.raise_error('upload')
+            self.raise_error('NO_FILE_UPLOADED')
         
         file_path = path / file.filename
         if file_path.exists():
-            self.raise_error('exists')
+            self.raise_error('ITEM_EXISTS')
         
         temp_path = file_path.with_suffix('.tmp')
         try:
             async with aiofiles.open(str(temp_path), 'wb') as out_file:
-                await out_file.write(await file.read())
+                content = await file.read()
+                await out_file.write(content)
             temp_path.rename(file_path)
         except Exception as e:
             if temp_path.exists():
                 temp_path.unlink()
-            self.raise_error('access', str(e))
+            self.raise_error('ACCESS_DENIED', str(e))
 
-    def create_folder(self, path: Path) -> Dict:
-        self.validate(path, require_dir=True)
-        name = "Untitled Folder"
+    def create_folder(self, path: Path) -> Dict[str, str]:
+        """Create a new folder with unique name"""
+        self.validate_path(path, require_dir=True)
+        
+        base_name = "Untitled Folder"
+        folder_name = base_name
         counter = 1
-        while (path / name).exists():
-            name = f"Untitled Folder {counter}"
+        
+        while (path / folder_name).exists():
+            folder_name = f"{base_name} {counter}"
             counter += 1
+        
         try:
-            (path / name).mkdir()
-            return {"message": f"Folder {name} created", "name": name}
+            (path / folder_name).mkdir()
+            return {"message": f"Folder {folder_name} created successfully", "name": folder_name}
         except Exception as e:
-            self.raise_error('access', str(e))
+            self.raise_error('ACCESS_DENIED', str(e))
 
-    def rename(self, path: Path, old_name: str, new_name: str) -> Dict:
-        self.validate(path, require_dir=True)
+    def rename(self, path: Path, old_name: str, new_name: str) -> Dict[str, str]:
+        """Rename a file or folder"""
+        self.validate_path(path, require_dir=True)
+        
         old_path = path / old_name
         new_path = path / new_name
-        self.validate(old_path)
+        
+        self.validate_path(old_path)
         if new_path.exists():
-            self.raise_error('exists')
+            self.raise_error('ITEM_EXISTS')
+        
         try:
             old_path.rename(new_path)
-            return {"message": f"Renamed to {new_name}"}
+            return {"message": f"Renamed successfully to {new_name}"}
         except Exception as e:
-            self.raise_error('access', str(e))
+            self.raise_error('ACCESS_DENIED', str(e))
 
-    def delete(self, path: Path, item_name: str) -> Dict:
-        self.validate(path, require_dir=True)
+    def delete(self, path: Path, item_name: str) -> Dict[str, str]:
+        """Delete a file or folder"""
+        self.validate_path(path, require_dir=True)
+        
         item_path = path / item_name
-        self.validate(item_path)
+        self.validate_path(item_path)
+        
         try:
             if item_path.is_file():
-                item_path.unlink()
+                item_path.unlink(missing_ok=True)
             else:
-                shutil.rmtree(item_path)
-            return {"message": f"{item_name} deleted"}
+                shutil.rmtree(item_path, ignore_errors=True)
+            return {"message": f"{item_name} deleted successfully"}
         except Exception as e:
-            self.raise_error('access', str(e))
+            self.raise_error('ACCESS_DENIED', str(e))
 
+# Initialize file system manager
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / 'test-volume'
 fs = FileSystem(UPLOAD_DIR)
 
 @app.post("/change-directory")
 async def change_directory(request: Request):
+    """Change the base directory for file operations"""
     try:
         data = await request.json()
         new_path = data.get('path', '').strip()
         if not new_path:
             raise HTTPException(status_code=400, detail="Path cannot be empty")
 
-        new_path = Path(new_path if Path(new_path).is_absolute() else BASE_DIR / new_path).resolve()
-        if not new_path.exists() or not new_path.is_dir():
-            raise HTTPException(status_code=404, detail="Invalid directory")
+        # Convert to absolute path if relative
+        if not Path(new_path).is_absolute():
+            new_path = BASE_DIR / new_path
 
+        new_path = Path(new_path).resolve()
+        
+        # Validate the new directory
+        if not new_path.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+        if not new_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path must be a directory")
+            
+        # Update the file system manager
         global UPLOAD_DIR, fs
         UPLOAD_DIR = new_path
         fs = FileSystem(UPLOAD_DIR)
-        return {"message": "Directory changed"}
+        
+        return {"message": "Directory changed successfully"}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Route handlers
 @app.get("/search")
 async def search(query: str = ""):
+    """Search for files and folders"""
     return fs.search(query)
 
 @app.get("/")
 @app.get("/{path:path}")
 async def index(request: Request, path: str = ""):
+    """Render index page with directory contents"""
     if not UPLOAD_DIR.exists():
-        return templates.TemplateResponse("index.html", 
-            {"request": request, "error": "Error: test-volume is not mounted"})
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "error": "Error: test-volume is not mounted"}
+        )
     
-    contents = fs.get_contents(UPLOAD_DIR / path)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "current_path": path,
-        "base_dir_name": UPLOAD_DIR.name,
-        **contents
-    })
+    current_path = UPLOAD_DIR / path
+    contents = fs.get_contents(current_path)
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "current_path": path,
+            "base_dir_name": UPLOAD_DIR.name,
+            **contents
+        }
+    )
 
 @app.post("/upload/{path:path}")
 async def upload_file(file: UploadFile = File(...), path: str = ""):
+    """Upload a file to specified path"""
     await fs.upload(file, UPLOAD_DIR / path)
     return RedirectResponse(url=f"/{path}", status_code=303)
 
 @app.post("/create-folder/{path:path}")
 async def create_folder(path: str = ""):
+    """Create a new folder"""
     return fs.create_folder(UPLOAD_DIR / path)
 
 @app.post("/rename/{path:path}")
 async def rename_item(path: str, old_name: str = Form(...), new_name: str = Form(...)):
+    """Rename a file or folder"""
     return fs.rename(UPLOAD_DIR / path, old_name, new_name)
 
 @app.post("/delete/{path:path}")
 async def delete_item(path: str, item_name: str = Form(...)):
+    """Delete a file or folder"""
     return fs.delete(UPLOAD_DIR / path, item_name)
-
-@app.get("/total-size")
-async def get_total_size():
-    return {"total_size": fs.get_size(UPLOAD_DIR) if UPLOAD_DIR.exists() else 0}
