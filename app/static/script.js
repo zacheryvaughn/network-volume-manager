@@ -504,11 +504,7 @@ class FileUploadManager {
             this.isUploading = false;
             this.progressBar.style.width = '0%';
             this.progressText.textContent = '';
-            
-            // Only close if no errors
-            if (!this.queuedFiles.querySelector('.error')) {
-                this.queueContainer.classList.add('closed');
-            }
+            this.queueContainer.classList.add('closed');
             return;
         }
 
@@ -521,7 +517,6 @@ class FileUploadManager {
 
         try {
             await this.uploadFile(file);
-            element.classList.remove('uploading');
             element.style.opacity = '0';
             element.style.transition = 'opacity 0.3s ease';
             
@@ -534,25 +529,8 @@ class FileUploadManager {
             
             await UIStateManager.refreshContent();
         } catch (error) {
-            element.classList.remove('uploading');
-            element.classList.add('error');
-            
-            // Show error with retry button
-            element.innerHTML += `
-                <div class="upload-error">${error.message}</div>
-                <button class="retry-upload" onclick="
-                    this.parentElement.classList.remove('error');
-                    this.parentElement.innerHTML = this.parentElement.innerHTML.split('<div')[0];
-                    fileUploadManager.queue.unshift({
-                        file: ${JSON.stringify(file)},
-                        element: this.parentElement
-                    });
-                    if (!fileUploadManager.isUploading) {
-                        fileUploadManager.processQueue();
-                    }
-                ">Retry</button>
-            `;
-            
+            ErrorHandler.showError(error, 'Upload failed');
+            element.remove();
             this.queue.shift();
             this.processQueue();
         }
