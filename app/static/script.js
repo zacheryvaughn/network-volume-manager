@@ -138,15 +138,11 @@ class APIClient {
 
 class ViewManager {
     constructor() {
-        console.log('ViewManager constructor called');
-        
         // Get view toggle button
         this.viewToggle = document.getElementById('view-toggle');
-        console.log('View toggle button found:', !!this.viewToggle);
         
         // Get items list
         this.itemsList = document.querySelector('#browser-content .items-list');
-        console.log('Items list found:', !!this.itemsList);
         
         // Bind the toggle view handler
         this.boundToggleView = this.toggleView.bind(this);
@@ -160,10 +156,7 @@ class ViewManager {
         this.viewToggle = document.getElementById('view-toggle');
         this.itemsList = document.querySelector('#browser-content .items-list');
 
-        if (!this.viewToggle || !this.itemsList) {
-            console.warn('View elements not found during initialization');
-            return;
-        }
+        if (!this.viewToggle || !this.itemsList) return;
 
         // Clean up any existing listeners
         this.cleanup();
@@ -196,65 +189,49 @@ class ViewManager {
     }
 
     setView(view) {
-        if (!this.itemsList || !this.viewToggle) {
-            console.warn('View elements not found during setView');
-            return;
+        if (!this.itemsList || !this.viewToggle) return;
+        
+        const isGrid = view === 'grid';
+        
+        // First remove both classes to ensure clean state
+        this.itemsList.classList.remove('grid-view', 'list-view');
+        this.viewToggle.classList.remove('grid-active', 'list-active');
+        
+        // Then add the appropriate class
+        if (isGrid) {
+            this.itemsList.classList.add('grid-view');
+            this.viewToggle.classList.add('grid-active');
+        } else {
+            this.itemsList.classList.add('list-view');
+            this.viewToggle.classList.add('list-active');
         }
         
-        try {
-            const isGrid = view === 'grid';
-            
-            // First remove both classes to ensure clean state
-            this.itemsList.classList.remove('grid-view', 'list-view');
-            this.viewToggle.classList.remove('grid-active', 'list-active');
-            
-            // Then add the appropriate class
-            if (isGrid) {
-                this.itemsList.classList.add('grid-view');
-                this.viewToggle.classList.add('grid-active');
-            } else {
-                this.itemsList.classList.add('list-view');
-                this.viewToggle.classList.add('list-active');
-            }
-            
-            // Update button title
-            this.viewToggle.setAttribute('title',
-                isGrid ? 'Switch to list view' : 'Switch to grid view'
-            );
-            
-            // Save the current view state
-            localStorage.setItem('fileViewMode', view);
-            
-            // Force a reflow if switching to grid view
-            if (isGrid) {
-                this.itemsList.style.display = 'none';
-                this.itemsList.offsetHeight; // Force reflow
-                this.itemsList.style.display = '';
-            }
-        } catch (error) {
-            console.error('Failed to set view:', error);
+        // Update button title
+        this.viewToggle.setAttribute('title',
+            isGrid ? 'Switch to list view' : 'Switch to grid view'
+        );
+        
+        // Save the current view state
+        localStorage.setItem('fileViewMode', view);
+        
+        // Force a reflow if switching to grid view
+        if (isGrid) {
+            this.itemsList.style.display = 'none';
+            this.itemsList.offsetHeight; // Force reflow
+            this.itemsList.style.display = '';
         }
     }
 
     toggleView(event) {
         event?.preventDefault();
+        if (!this.itemsList || !this.viewToggle) return;
         
-        if (!this.itemsList || !this.viewToggle) {
-            console.warn('View elements not found during toggle');
-            return;
-        }
+        // Check current state and set the opposite
+        const isCurrentlyGrid = this.itemsList.classList.contains('grid-view');
+        const newView = isCurrentlyGrid ? 'list' : 'grid';
         
-        try {
-            // Check current state and set the opposite
-            const isCurrentlyGrid = this.itemsList.classList.contains('grid-view');
-            const newView = isCurrentlyGrid ? 'list' : 'grid';
-            
-            // Use setView to ensure consistent state management
-            this.setView(newView);
-            
-        } catch (error) {
-            console.error('Failed to toggle view:', error);
-        }
+        // Use setView to ensure consistent state management
+        this.setView(newView);
     }
 }
 
@@ -471,12 +448,8 @@ class FileUploadManager {
     }
 
     initializeFileInput() {
-        console.log('Initializing file input');
         const fileInput = document.getElementById('file');
-        if (!fileInput) {
-            console.error('File input element not found');
-            return;
-        }
+        if (!fileInput) return;
         
         // Remove any existing listeners
         const newFileInput = fileInput.cloneNode(true);
@@ -484,35 +457,20 @@ class FileUploadManager {
         
         // Add new listener
         newFileInput.addEventListener('change', (e) => {
-            console.log('File input change event triggered');
             this.handleFileSelection(e.target.files);
         });
-        
-        console.log('File input initialized successfully');
     }
 
     handleFileSelection(files) {
-        console.log('File selection triggered, files:', files?.length);
+        if (!files?.length) return;
         
-        if (!files?.length) {
-            console.log('No files selected');
-            return;
-        }
-        
-        // Reset upload state
+        // Show upload queue and reset progress
+        this.queueContainer.classList.remove('closed');
         this.progressBar.style.width = '0%';
         this.progressText.textContent = '';
-        this.progressBar.style.backgroundColor = 'var(--color-blue-500)';
         
-        // Show upload queue
-        this.queueContainer.classList.remove('closed');
-        this.queuedFiles.style.display = 'block';
-        
-        console.log('Processing selected files');
-        
-        // Add files to queue
+        // Filter and add valid files to queue
         const validFiles = Array.from(files).filter(file => {
-            console.log('Validating file:', file.name, 'size:', file.size);
             if (file.size > this.maxSize) {
                 ErrorHandler.showError(
                     new Error(`File ${file.name} exceeds 32GB limit`),
@@ -523,11 +481,8 @@ class FileUploadManager {
             return true;
         });
 
-        console.log('Valid files to upload:', validFiles.length);
-
         // Add valid files to queue
         validFiles.forEach(file => {
-            console.log('Adding to queue:', file.name);
             const item = document.createElement('div');
             item.className = 'queue-item';
             item.innerHTML = `
@@ -540,22 +495,17 @@ class FileUploadManager {
 
         // Start upload if not already uploading
         if (!this.isUploading && validFiles.length > 0) {
-            console.log('Starting queue processing');
             this.processQueue();
-        } else {
-            console.log('Upload already in progress or no valid files');
         }
     }
 
     async processQueue() {
-        console.log('Processing queue, length:', this.queue.length);
-        
         if (this.queue.length === 0) {
-            console.log('Queue empty, resetting upload state');
             this.isUploading = false;
             this.progressBar.style.width = '0%';
             this.progressText.textContent = '';
-            // Only close queue container if there are no error items
+            
+            // Only close if no errors
             if (!this.queuedFiles.querySelector('.error')) {
                 this.queueContainer.classList.add('closed');
             }
@@ -563,140 +513,89 @@ class FileUploadManager {
         }
 
         if (!this.isUploading) {
-            console.log('Starting new upload process');
             this.isUploading = true;
-            this.progressBar.style.backgroundColor = 'var(--color-blue-500)';
         }
 
         const { file, element } = this.queue[0];
-        console.log('Processing file:', file.name);
+        element.classList.add('uploading');
 
         try {
-            // Add uploading class for visual feedback
-            element.classList.add('uploading');
-            
-            // Attempt upload
             await this.uploadFile(file);
-            
-            console.log('Upload successful');
-            // Fade out the element before removing
+            element.classList.remove('uploading');
             element.style.opacity = '0';
             element.style.transition = 'opacity 0.3s ease';
             
-            // Wait for fade out
-            await new Promise(resolve => setTimeout(resolve, 300));
-            element.remove();
+            // Remove element after fade
+            setTimeout(() => {
+                element.remove();
+                this.queue.shift();
+                this.processQueue();
+            }, 300);
             
-            // Refresh content
             await UIStateManager.refreshContent();
         } catch (error) {
-            console.error('Upload failed:', error);
             element.classList.remove('uploading');
             element.classList.add('error');
             
-            // Add error message to the element
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'upload-error';
-            errorDiv.textContent = error.message;
-            element.appendChild(errorDiv);
+            // Show error with retry button
+            element.innerHTML += `
+                <div class="upload-error">${error.message}</div>
+                <button class="retry-upload" onclick="
+                    this.parentElement.classList.remove('error');
+                    this.parentElement.innerHTML = this.parentElement.innerHTML.split('<div')[0];
+                    fileUploadManager.queue.unshift({
+                        file: ${JSON.stringify(file)},
+                        element: this.parentElement
+                    });
+                    if (!fileUploadManager.isUploading) {
+                        fileUploadManager.processQueue();
+                    }
+                ">Retry</button>
+            `;
             
-            // Add retry button
-            const retryBtn = document.createElement('button');
-            retryBtn.className = 'retry-upload';
-            retryBtn.textContent = 'Retry';
-            retryBtn.onclick = () => {
-                element.classList.remove('error');
-                errorDiv.remove();
-                retryBtn.remove();
-                // Put the file back in the queue
-                this.queue.unshift({ file, element });
-                if (!this.isUploading) {
-                    this.processQueue();
-                }
-            };
-            element.appendChild(retryBtn);
+            this.queue.shift();
+            this.processQueue();
         }
-
-        // Remove from queue
-        this.queue.shift();
-        
-        // Small delay before processing next file
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await this.processQueue();
     }
 
     uploadFile(file) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            
-            // Get current path and ensure it's never undefined/empty for the API
             const currentPath = APIClient.getCurrentPath() || '.';
-            console.log('Uploading file:', file.name, 'to path:', currentPath);
-            
-            // Always include the path parameter in the URL
             const uploadUrl = `/upload/${currentPath}`;
-            console.log('Upload URL:', uploadUrl);
             
             xhr.open('POST', uploadUrl, true);
 
-            // Handle progress with throttling
-            let lastProgressUpdate = 0;
+            // Update progress
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const now = Date.now();
-                    // Throttle progress updates to every 100ms
-                    if (now - lastProgressUpdate > 100) {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        this.progressBar.style.width = percent + '%';
-                        this.progressText.textContent = percent + '%';
-                        console.log('Upload progress:', percent + '%');
-                        lastProgressUpdate = now;
-                    }
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    this.progressBar.style.width = `${percent}%`;
+                    this.progressText.textContent = `${file.name} - ${percent}%`;
                 }
             };
 
             // Handle completion
             xhr.onload = () => {
-                console.log('Upload response status:', xhr.status);
-                try {
-                    if (xhr.status === 200 || xhr.status === 303) {
-                        this.progressBar.style.backgroundColor = 'var(--color-green-500)';
-                        console.log('Upload completed successfully');
-                        resolve();
-                    } else {
-                        let errorMessage = 'Upload failed';
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            errorMessage = response.detail || errorMessage;
-                        } catch (e) {
-                            console.error('Could not parse error response:', e);
-                        }
-                        this.progressBar.style.backgroundColor = 'var(--color-red-600)';
-                        console.error('Upload failed:', errorMessage);
-                        reject(new Error(errorMessage));
-                    }
-                } catch (error) {
-                    console.error('Error handling upload response:', error);
-                    reject(error);
+                if (xhr.status === 200 || xhr.status === 303) {
+                    resolve();
+                } else {
+                    let errorMessage = 'Upload failed';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMessage = response.detail || errorMessage;
+                    } catch (e) {}
+                    reject(new Error(errorMessage));
                 }
             };
 
             // Handle network errors
-            xhr.onerror = (error) => {
-                console.error('Upload network error:', error);
-                this.progressBar.style.backgroundColor = 'var(--color-red-600)';
-                reject(new Error('Network error during upload'));
-            };
+            xhr.onerror = () => reject(new Error('Network error during upload'));
 
             // Send the file
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                xhr.send(formData);
-            } catch (error) {
-                console.error('Error sending file:', error);
-                reject(error);
-            }
+            const formData = new FormData();
+            formData.append('file', file);
+            xhr.send(formData);
         });
     }
 }
@@ -799,32 +698,22 @@ let uiManager;
 let fileUploadManager;
 let searchManager;
 
-// Wait for DOM to be fully loaded
+// Initialize UI components when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded event fired');
-    
-    // Initialize UI components after a short delay to ensure all elements are ready
     setTimeout(() => {
-        console.log('Initializing UI components');
-        
-        // Initialize managers
         uiManager = new UIManager();
         fileUploadManager = new FileUploadManager();
         searchManager = new SearchManager();
         
-        // Re-initialize view manager to ensure proper setup
         if (uiManager?.viewManager) {
-            console.log('Re-initializing view manager');
             uiManager.viewManager.initialize();
         }
     }, 100);
 });
 
-// Add load event listener as backup
+// Backup initialization
 window.addEventListener('load', () => {
-    console.log('Window load event fired');
     if (!uiManager) {
-        console.log('Initializing UI components from load event');
         uiManager = new UIManager();
         fileUploadManager = new FileUploadManager();
         searchManager = new SearchManager();
