@@ -43,7 +43,6 @@ class UIManager {
             viewToggleText: document.querySelector('#view-toggle .view-icon'),
             uploadQueue: document.getElementById('upload-queue'),
             progressBar: document.getElementById('progressBar'),
-            progressText: document.getElementById('progressText'),
             queuedFiles: document.getElementById('queued-files'),
             searchInput: document.getElementById('search-input'),
             searchResults: document.getElementById('search-results'),
@@ -85,13 +84,6 @@ class UIManager {
                     this.elements.searchResults.style.display = 'none';
                 }
             });
-        }
-
-        // Upload queue toggle
-        const closeQueueBtn = document.getElementById('close-upload-queue-btn');
-        if (closeQueueBtn) {
-            closeQueueBtn.addEventListener('click', () => 
-                this.elements.uploadQueue.classList.toggle('closed'));
         }
 
         // Item click handling
@@ -167,9 +159,7 @@ class UIManager {
 
         if (!validFiles.length) return;
 
-        this.elements.uploadQueue.classList.remove('closed');
         this.elements.progressBar.style.width = '0%';
-        this.elements.progressText.textContent = '';
 
         validFiles.forEach(file => {
             const item = document.createElement('div');
@@ -189,8 +179,6 @@ class UIManager {
         if (!this.uploadQueue.length) {
             this.isUploading = false;
             this.elements.progressBar.style.width = '0%';
-            this.elements.progressText.textContent = '';
-            this.elements.uploadQueue.classList.add('closed');
             return;
         }
 
@@ -224,7 +212,6 @@ class UIManager {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
                     this.elements.progressBar.style.width = `${percent}%`;
-                    this.elements.progressText.textContent = `${file.name} - ${percent}%`;
                 }
             };
 
