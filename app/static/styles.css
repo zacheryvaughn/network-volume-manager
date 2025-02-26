@@ -332,7 +332,7 @@ button {
 
 /* Content Area */
 #browser-content {
-    padding: 22px;
+    padding: 22px 22px 60px 22px;
     overflow: auto;
 }
 
