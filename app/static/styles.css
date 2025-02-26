@@ -30,12 +30,21 @@
     box-sizing: border-box;
 }
 
+/* Global Styles */
+
 body {
     position: relative;
     display: flex;
     width: 100vw;
     height: 100vh;
     background-color: var(--E);
+}
+
+button {
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    user-select: none;
 }
 
 /* Sidebar */
@@ -128,10 +137,7 @@ body {
     width: 100%;
     height: 40px;
     background-color: var(--0);
-    border: none;
     border-radius: 8px;
-    cursor: pointer;
-    user-select: none;
 }
 
 .upload-file-btn:active, .create-folder-btn:active {
@@ -238,8 +244,6 @@ body {
     align-items: center;
     justify-content: center;
     height: 40px;
-    border: none;
-    cursor: pointer;
 }
 
 .lock-icon {
@@ -275,6 +279,7 @@ body {
 }
 
 #browser-header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -290,25 +295,30 @@ body {
 }
 
 .path-part-btn {
-    color: #000000;
-    background-color: transparent;
+    color: var(--6);
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .path-part-btn:hover {
-    color: #666;
+    color: var(--0);
     background-color: transparent;
 }
 
 /* View Toggle */
 .view-toggle {
-    padding: 8px 16px;
-    background-color: #000;
-    color: #fff;
-    border-radius: 4px;
+    width: 36px;
+    height: 32px;
+    border-radius: 8px;
+}
+.view-toggle:hover {
+    background-color: var(--D);
 }
 
-.view-toggle:hover {
-    background-color: #333;
+.view-svg {
+    fill: var(--0);
+    width: 24px;
+    margin-top: 2px;
 }
 
 /* Content Area */

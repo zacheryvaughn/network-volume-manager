@@ -98,16 +98,18 @@ class UIManager {
 
     updateViewMode(mode, skipSave = false) {
         if (!this.elements.itemsList || !this.elements.viewToggle) return;
-
+    
         // Update state
         this.viewMode = mode;
         if (!skipSave) {
             localStorage.setItem('fileViewMode', mode);
         }
-
+    
         // Update UI
         this.elements.itemsList.classList.toggle('grid-view', mode === 'grid');
-        this.elements.viewToggleText.textContent = mode === 'grid' ? 'List View' : 'Grid View';
+        this.elements.viewToggleText.innerHTML = mode === 'grid' ?
+            '<svg class="view-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- SVG code --><path d="M32 288c-17.7 0-32 14.3-32 32s14.3 32 32 32l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 288zm0-128c-17.7 0-32 14.3-32 32s14.3 32 32 32l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 160z"/></svg>'
+            : '<svg class="view-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- SVG code --><path d="M128 136c0-22.1-17.9-40-40-40L40 96C17.9 96 0 113.9 0 136l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm0 192c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm32-192l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40zM288 328c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48zm32-192l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40zM448 328c0-22.1-17.9-40-40-40l-48 0c-22.1 0-40 17.9-40 40l0 48c0 22.1 17.9 40 40 40l48 0c22.1 0 40-17.9 40-40l0-48z"/></svg>';
     }
 
     async refreshContent() {
