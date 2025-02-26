@@ -1,64 +1,30 @@
 /* COLOR VARIABLES */
 :root {
-    /* Primary Blue */
-    --color-blue-50: oklch(0.97 0.014 254.604);
-    --color-blue-100: oklch(0.932 0.032 255.585);
-    --color-blue-200: oklch(0.882 0.059 254.128);
-    --color-blue-300: oklch(0.809 0.105 251.813);
-    --color-blue-400: oklch(0.707 0.165 254.624);
-    --color-blue-500: oklch(0.623 0.214 259.815);
-    --color-blue-600: oklch(0.546 0.245 262.881);
-    --color-blue-700: oklch(0.488 0.243 264.376);
-    --color-blue-800: oklch(0.424 0.199 265.638);
-    --color-blue-900: oklch(0.379 0.146 265.522);
-    --color-blue-950: oklch(0.282 0.091 267.935);
-
-    /* Background Gray */
-    --color-neutral-50: oklch(0.985 0 0);
-    --color-neutral-100: oklch(0.97 0 0);
-    --color-neutral-200: oklch(0.922 0 0);
-    --color-neutral-300: oklch(0.87 0 0);
-    --color-neutral-400: oklch(0.708 0 0);
-    --color-neutral-500: oklch(0.556 0 0);
-    --color-neutral-600: oklch(0.439 0 0);
-    --color-neutral-700: oklch(0.371 0 0);
-    --color-neutral-800: oklch(0.269 0 0);
-    --color-neutral-900: oklch(0.205 0 0);
-    --color-neutral-950: oklch(0.145 0 0);
-
-    /* Danger Red */
-    --color-red-50: oklch(0.971 0.013 17.38);
-    --color-red-100: oklch(0.936 0.032 17.717);
-    --color-red-200: oklch(0.885 0.062 18.334);
-    --color-red-300: oklch(0.808 0.114 19.571);
-    --color-red-400: oklch(0.704 0.191 22.216);
-    --color-red-500: oklch(0.637 0.237 25.331);
-    --color-red-600: oklch(0.577 0.245 27.325);
-    --color-red-700: oklch(0.505 0.213 27.518);
-    --color-red-800: oklch(0.444 0.177 26.899);
-    --color-red-900: oklch(0.396 0.141 25.723);
-    --color-red-950: oklch(0.258 0.092 26.042);
-
-    /* Success Green */
-    --color-green-50: oklch(0.982 0.018 155.826);
-    --color-green-100: oklch(0.962 0.044 156.743);
-    --color-green-200: oklch(0.925 0.084 155.995);
-    --color-green-300: oklch(0.871 0.15 154.449);
-    --color-green-400: oklch(0.792 0.209 151.711);
-    --color-green-500: oklch(0.723 0.219 149.579);
-    --color-green-600: oklch(0.627 0.194 149.214);
-    --color-green-700: oklch(0.527 0.154 150.069);
-    --color-green-800: oklch(0.448 0.119 151.328);
-    --color-green-900: oklch(0.393 0.095 152.535);
-    --color-green-950: oklch(0.266 0.065 152.934);
+    --0: #000000;
+    --1: #111111;
+    --2: #222222;
+    --3: #333333;
+    --4: #444444;
+    --5: #555555;
+    --6: #666666;
+    --7: #777777;
+    --8: #888888;
+    --9: #999999;
+    --A: #AAAAAA;
+    --B: #BBBBBB;
+    --C: #CCCCCC;
+    --D: #DDDDDD;
+    --E: #EEEEEE;
+    --F: #FFFFFF;
 }
+  
 
 /* Base Styles */
 * {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16px;
     font-weight: 200;
-    color: #000000;
+    color: var(--0);
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -69,19 +35,7 @@ body {
     display: flex;
     width: 100vw;
     height: 100vh;
-    background-color: white;
-}
-
-button {
-    color: #FFFFFF;
-    background-color: #000000;
-    border: none;
-    user-select: none;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #222222;
+    background-color: var(--E);
 }
 
 /* Sidebar */
@@ -92,18 +46,153 @@ button:hover {
     width: 280px;
     height: 100%;
     padding: 18px;
-    border-right: 1px solid #DDDDDD;
+    border-right: 2px solid var(--D);
 }
 
 #sidebar-top, #sidebar-bottom {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
+}
+
+/* Search */
+.search-container {
+    position: relative;
+    width: 100%;
+}
+
+#search-input, #directory-input {
+    width: 100%;
+    height: 40px;
+    padding: 10px;
+    background-color: var(--F);
+    border: 2px solid var(--D);
+    border-radius: 8px;
+    outline: none;
+}
+
+#search-input:focus {
+    border: 2px solid var(--0);
+}
+
+.search-results {
+    z-index: 1000;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 10px);
+    width: 360px;
+    max-height: 480px;
+    padding: 8px;
+    background-color: var(--F);
+    border-radius: 8px;
+    box-shadow: 0px 3px 6px var(--A);
+    overflow-y: auto;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.search-result-item:hover {
+    background-color: var(--E);
+}
+
+.search-result-item .icon {
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.search-result-item .name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-result-item .path {
+    font-size: 12px;
+    margin-left: 8px;
+    opacity: 0.7;
 }
 
 .upload-file-btn, .create-folder-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0px 14px;
     width: 100%;
     height: 40px;
+    background-color: var(--0);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.upload-file-btn:active, .create-folder-btn:active {
+    background-color: var(--3);
+}
+
+.upload-file-btn span, .create-folder-btn span {
+    color: var(--F);
+}
+
+.btn-icon {
+    width: 20px;
+    fill: var(--F);
+}
+
+/* Directory Input */
+.directory-input-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#directory-input:focus {
+    border-color: var(--0);
+}
+
+#directory-input:disabled {
+    background-color: var(--D);
+    cursor: not-allowed;
+}
+
+#change-directory-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    border: none;
+    cursor: pointer;
+}
+
+.lock-icon {
+    width: 24px;
+    height: 24px;
+    fill: var(--0);
+    overflow: visible;
+}
+
+.lock-icon:active {
+    fill: var(--3);
+}
+
+.locked-path, .unlocked-path {
+    display: none;
+}
+
+#change-directory-btn.locked .locked-path {
+    display: block;
+}
+
+#change-directory-btn:not(.locked) .unlocked-path {
+    display: block;
 }
 
 /* Browser */
@@ -240,71 +329,6 @@ button:hover {
 .items-list.grid-view .item-right {
     width: 100%;
     justify-content: center;
-}
-
-/* Search */
-.search-container {
-    position: relative;
-    width: 100%;
-}
-
-#search-input {
-    width: 100%;
-    height: 40px;
-    padding: 10px;
-    background-color: #DDDDDD;
-    border: 1px solid transparent;
-    outline: none;
-}
-
-#search-input:focus {
-    border-color: #333333;
-}
-
-.search-results {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    width: 100%;
-    max-height: 400px;
-    background-color: var(--color-neutral-800);
-    overflow-y: auto;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.search-results-content {
-    padding: 8px;
-}
-
-.search-result-item {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    cursor: pointer;
-    color: #fff;
-}
-
-.search-result-item:hover {
-    background-color: var(--color-neutral-700);
-}
-
-.search-result-item .icon {
-    margin-right: 12px;
-    font-size: 20px;
-}
-
-.search-result-item .name {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.search-result-item .path {
-    font-size: 12px;
-    margin-left: 8px;
-    opacity: 0.7;
 }
 
 /* Buttons */
@@ -445,56 +469,4 @@ button:hover {
     background-color: var(--color-red-600);
     color: #fff;
     margin-bottom: 10px;
-}
-
-/* Directory Input */
-.directory-input-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#directory-input {
-    flex: 1;
-    height: 40px;
-    padding: 10px;
-    background-color: #DDDDDD;
-    border: 1px solid transparent;
-    outline: none;
-}
-
-#directory-input:focus {
-    border-color: #333333;
-}
-
-#directory-input:disabled {
-    background-color: #CCCCCC;
-    cursor: not-allowed;
-}
-
-#change-directory-btn {
-    width: 40px;
-    height: 40px;
-    padding: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.lock-icon {
-    width: 20px;
-    height: 20px;
-    fill: white;
-}
-
-.locked-path, .unlocked-path {
-    display: none;
-}
-
-#change-directory-btn.locked .locked-path {
-    display: block;
-}
-
-#change-directory-btn:not(.locked) .unlocked-path {
-    display: block;
 }
