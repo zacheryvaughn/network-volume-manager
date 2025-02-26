@@ -274,12 +274,11 @@ button {
 #browser {
     display: flex;
     flex-direction: column;
-    width: calc(100% - 280px);
+    width: calc(100% - 320px);
     height: 100%;
 }
 
 #browser-header {
-    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -289,15 +288,24 @@ button {
 }
 
 #browser-header-left {
+    flex: 1;
     display: flex;
     align-items: center;
     gap: 6px;
+    height: 40px;
+    overflow: auto;
+}
+
+#browser-header-right {
+    flex-shrink: 0;
+    margin-left: 22px;
 }
 
 .path-part-btn {
     color: var(--6);
     font-size: 14px;
     font-weight: 600;
+    text-wrap: nowrap;
 }
 
 .path-part-btn:hover {
