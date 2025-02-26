@@ -332,8 +332,27 @@ button {
 
 /* Content Area */
 #browser-content {
-    padding: 22px 22px 60px 22px;
+    padding: 22px;
     overflow: auto;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.section-title-text {
+    font-weight: bold;
+    font-size: 18px;
+    margin-right: 18px;
+}
+
+.browser-divider {
+    width: 100%;
+    height: 2px;
+    background-color: var(--C);
 }
 
 .items-list {
@@ -353,22 +372,30 @@ button {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 60px;
-    padding: 0 20px;
-    background-color: #EEE;
+    height: 50px;
+    padding: 0 18px;
+    background-color: var(--F);
+    border-radius: 8px;
 }
 
 .item-left {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 20px;
     flex: 1;
     min-width: 0;
 }
 
 .icon {
-    font-size: 26px;
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
+}
+
+.item-svg {
+    fill: var(--0);
+    width: 26px;
+    height: 26px;
 }
 
 .item-name {
@@ -376,82 +403,130 @@ button {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 28px;
     cursor: pointer;
     padding: 10px 0;
 }
 
 .item-right {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 22px;
+}
+
+/* Buttons */
+.options-btn {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-left: 18px;
+}
+
+.options-ellipsis {
+    height: 20px;
+    fill: var(--0);
+}
+
+.options-btn:hover {
+    background-color: var(--E);
+}
+
+.item-options {
+    z-index: 1000;
+    position: absolute;
+    top: 0;
+    right: calc(100% - 12px);
+    display: none;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px;
+    background-color: var(--F);
+    border-radius: 8px;
+    box-shadow: 0px 2px 6px var(--8);
+}
+
+.item-options.options-open {
+    display: flex;
+}
+
+.rename-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    font-size: 14px;
+    color: var(--0);
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.delete-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    font-size: 14px;
+    color: darkred;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.rename-btn:hover, .delete-btn:hover {
+    background-color: var(--E);
+}
+
+.rename-input {
+    width: 100%;
+    padding: 4px 8px;
+    background: var(--E);
+    border: none;
+    border-radius: 8px;
+    outline: none;
 }
 
 /* Grid View */
 .items-list.grid-view .items-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 20px;
+    gap: 18px;
 }
 
 .items-list.grid-view .item {
+    position: relative;
     flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
     height: auto;
-    padding: 20px;
+    padding: 16px 18px;
 }
 
 .items-list.grid-view .item-left {
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
     gap: 12px;
-    margin-bottom: 20px;
+    width: 100%;
 }
 
-.items-list.grid-view .icon {
-    font-size: 48px;
+.items-list.grid-view .icon .item-svg {
+    width: 32px;
+    height: 32px;
 }
 
 .items-list.grid-view .item-name {
-    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    width: 100%;
     padding: 0;
 }
 
 .items-list.grid-view .item-right {
-    width: 100%;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: auto;
     justify-content: center;
-}
-
-/* Buttons */
-.rename-btn {
-    color: #000;
-    background-color: transparent;
-}
-
-.rename-btn:hover {
-    color: #666;
-    background: none;
-}
-
-.delete-btn {
-    font-size: 14px;
-    height: 30px;
-    padding: 0 18px;
-    color: var(--color-red-400);
-    background-color: transparent;
-    border: 1px solid var(--color-red-400);
-}
-
-.delete-btn:hover {
-    color: #fff;
-    background-color: var(--color-red-400);
-}
-
-.rename-input {
-    width: 100%;
-    padding: 4px 8px;
-    background: #fff;
-    border: 1px solid #000;
-    outline: none;
 }
 
 /* Messages */

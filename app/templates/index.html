@@ -70,18 +70,28 @@
         <div id="browser-content">
             <div id="items-list" class="items-list">
                 {% if folders %}
-                <div class="section-title">Folders</div>
+                <div class="section-title">
+                    <span class="section-title-text">Folders</span>
+                    <span class="browser-divider"></span>
+                </div>
                 <div class="items-container">
                 {% for folder in folders %}
                     {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
                     <div class="item">
                         <div class="item-left">
-                            <span class="icon">📁</span>
+                            <span class="icon">
+                                <svg class="item-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M448 480L64 480c-35.3 0-64-28.7-64-64L0 192l512 0 0 224c0 35.3-28.7 64-64 64zm64-320L0 160 0 96C0 60.7 28.7 32 64 32l128 0c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8l160 0c35.3 0 64 28.7 64 64z"/></svg>
+                            </span>
                             <span class="item-name" data-path="/{{ folder_path }}">{{ folder }}/</span>
                         </div>
                         <div class="item-right">
-                            <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), true)">Rename</button>
-                            <button class="delete-btn" onclick="deleteItem('{{ folder }}', true)">Delete</button>
+                            <button class="options-btn">
+                                <svg class="options-ellipsis" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z"/></svg>
+                            </button>
+                            <div class="item-options">
+                                <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
+                                <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
+                            </div>
                         </div>
                     </div>
                 {% endfor %}
@@ -89,17 +99,27 @@
                 {% endif %}
 
                 {% if files %}
-                <div class="section-title">Files</div>
+                <div class="section-title">
+                    <span class="section-title-text">Files</span>
+                    <span class="browser-divider"></span>
+                </div>
                 <div class="items-container">
                 {% for file in files %}
                     <div class="item">
                         <div class="item-left">
-                            <span class="icon">📄</span>
+                            <span class="icon">
+                                <svg class="item-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 288c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128z"/></svg>
+                            </span>
                             <span class="item-name">{{ file }}</span>
                         </div>
                         <div class="item-right">
-                            <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
-                            <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
+                            <button class="options-btn">
+                                <svg class="options-ellipsis" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z"/></svg>
+                            </button>
+                            <div class="item-options">
+                                <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
+                                <button class="delete-btn" onclick="deleteItem('{{ file }}', false)">Delete</button>
+                            </div>
                         </div>
                     </div>
                 {% endfor %}

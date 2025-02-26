@@ -1,14 +1,14 @@
 // Core API and error handling
 const API = {
     getCurrentPath: () => window.location.pathname.substring(1),
-    
+
     async request(url, options = {}) {
         const response = await fetch(url, options);
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
             throw new Error(data.detail || response.statusText || 'Request failed');
         }
-        return response.headers.get('content-type')?.includes('application/json') ? 
+        return response.headers.get('content-type')?.includes('application/json') ?
             response.json() : response;
     },
 
@@ -73,14 +73,12 @@ class UIManager {
 
         // Search
         if (this.elements.searchInput) {
-            this.elements.searchInput.addEventListener('input', 
-                debounce(() => this.performSearch(), 300));
+            this.elements.searchInput.addEventListener('input', debounce(() => this.performSearch(), 300));
             this.elements.searchInput.addEventListener('focus', () => {
                 if (this.elements.searchInput.value) this.showSearchResults();
             });
             document.addEventListener('click', (e) => {
-                if (!this.elements.searchResults.contains(e.target) && 
-                    e.target !== this.elements.searchInput) {
+                if (!this.elements.searchResults.contains(e.target) && e.target !== this.elements.searchInput) {
                     this.elements.searchResults.style.display = 'none';
                 }
             });
@@ -88,23 +86,51 @@ class UIManager {
 
         // Item click handling
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('item-name') && 
-                !e.target.querySelector('.rename-input')) {
+            if (e.target.classList.contains('item-name') && !e.target.querySelector('.rename-input')) {
                 const path = e.target.dataset.path;
                 if (path) location.href = path;
             }
+        });
+
+        // Initialize options list event listeners
+        this.initializeItemOptionsListeners();
+    }
+
+    initializeItemOptionsListeners() {
+        const itemOptionsButtons = document.getElementsByClassName('options-btn');
+        const itemOptionsLists = document.getElementsByClassName('item-options');
+
+        // Attach click handlers to each options button
+        Array.from(itemOptionsButtons).forEach((button, index) => {
+            button.addEventListener('click', (e) => {
+                const optionsList = itemOptionsLists[index];
+                // Toggle open state: if not open, open it and stop propagation so it doesn't immediately close.
+                if (!optionsList.classList.contains('options-open')) {
+                    // Optionally, close any other open options lists:
+                    Array.from(itemOptionsLists).forEach(list => list.classList.remove('options-open'));
+                    optionsList.classList.add('options-open');
+                    e.stopPropagation();
+                } else {
+                    optionsList.classList.remove('options-open');
+                }
+            });
+        });
+
+        // Document-level listener to close any open options list on any click (even within the list)
+        document.addEventListener('click', () => {
+            Array.from(itemOptionsLists).forEach(list => list.classList.remove('options-open'));
         });
     }
 
     updateViewMode(mode, skipSave = false) {
         if (!this.elements.itemsList || !this.elements.viewToggle) return;
-    
+
         // Update state
         this.viewMode = mode;
         if (!skipSave) {
             localStorage.setItem('fileViewMode', mode);
         }
-    
+
         // Update UI
         this.elements.itemsList.classList.toggle('grid-view', mode === 'grid');
         this.elements.viewToggleText.innerHTML = mode === 'grid' ?
@@ -119,24 +145,22 @@ class UIManager {
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
             const newContent = doc.getElementById('browser-content');
-            
+
             if (newContent) {
                 document.getElementById('browser-content').innerHTML = newContent.innerHTML;
-                
+
                 // Re-cache the items list element as it's been replaced
                 this.elements.itemsList = document.getElementById('items-list');
-                
+
                 // Reapply the current view mode
                 if (this.elements.itemsList) {
                     this.updateViewMode(this.viewMode, true);
                 }
 
-                // Update directory input with new base directory
-                const directoryInput = document.getElementById('directory-input');
-                const baseDirBtn = document.querySelector('.path-part-btn');
-                if (directoryInput && baseDirBtn) {
-                    directoryInput.value = baseDirBtn.textContent.trim();
-                }
+                // Reinitialize options list event listeners on the new content.
+                this.initializeItemOptionsListeners();
+
+                // Reinitialize any other event listeners as needed
 
                 return true;
             }
@@ -149,7 +173,7 @@ class UIManager {
 
     handleFileSelection(files) {
         if (!files?.length) return;
-        
+
         const maxSize = 32 * 1024 * 1024 * 1024; // 32GB
         const validFiles = Array.from(files).filter(file => {
             if (file.size > maxSize) {
@@ -167,9 +191,9 @@ class UIManager {
             const item = document.createElement('div');
             item.className = 'queue-item';
             item.innerHTML = `
-                <div class="queue-item-name">${file.name}</div>
-                <div class="queue-item-size">${formatFileSize(file.size)}</div>
-            `;
+            <div class="queue-item-name">${file.name}</div>
+            <div class="queue-item-size">${formatFileSize(file.size)}</div>
+        `;
             this.elements.queuedFiles.appendChild(item);
             this.uploadQueue.push({ file, element: item });
         });
@@ -253,22 +277,22 @@ class UIManager {
             }
 
             let html = results.folders.map(folder => `
-                <div class="search-result-item" onclick="location.href='./${folder.path}'">
-                    <span class="icon">📁</span>
-                    <span class="name">${folder.name}</span>
-                    <span class="path">${folder.path}</span>
-                </div>
-            `).join('');
+            <div class="search-result-item" onclick="location.href='./${folder.path}'">
+                <span class="icon">📁</span>
+                <span class="name">${folder.name}</span>
+                <span class="path">${folder.path}</span>
+            </div>
+        `).join('');
 
             html += results.files.map(file => {
                 const dirPath = file.path.split('/').slice(0, -1).join('/');
                 return `
-                    <div class="search-result-item" onclick="location.href='./${dirPath}'">
-                        <span class="icon">📄</span>
-                        <span class="name">${file.name}</span>
-                        <span class="path">${file.path}</span>
-                    </div>
-                `;
+            <div class="search-result-item" onclick="location.href='./${dirPath}'">
+                <span class="icon">📄</span>
+                <span class="name">${file.name}</span>
+                <span class="path">${file.path}</span>
+            </div>
+          `;
             }).join('');
 
             this.elements.searchContent.innerHTML = html;
@@ -296,10 +320,10 @@ class UIManager {
             input.className = 'rename-input';
             input.maxLength = 255;
 
-            const displayName = isFolder ? 
-                itemName.slice(0, -1) : 
+            const displayName = isFolder ?
+                itemName.slice(0, -1) :
                 itemName.substring(0, itemName.lastIndexOf('.')) || itemName;
-            
+
             input.value = displayName.trim();
             if (!isFolder) {
                 input.dataset.extension = itemName.slice(itemName.lastIndexOf('.')) || '';
@@ -367,15 +391,16 @@ class UIManager {
     }
 }
 
+
 // Utility functions
 function formatFileSize(bytes) {
     if (typeof bytes !== 'number' || isNaN(bytes)) return '0 B';
     if (bytes === 0) return '0 B';
-    
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[Math.min(i, sizes.length - 1)];
 }
 
@@ -391,7 +416,7 @@ function debounce(func, wait) {
 async function changeDirectory() {
     const directoryInput = document.getElementById('directory-input');
     const changeDirBtn = document.getElementById('change-directory-btn');
-    
+
     // Toggle lock state if input is disabled
     if (directoryInput.disabled) {
         directoryInput.disabled = false;
@@ -434,7 +459,7 @@ async function changeDirectory() {
 let ui;
 document.addEventListener('DOMContentLoaded', () => {
     ui = new UIManager();
-    
+
     // Initialize directory input and button
     const directoryInput = document.getElementById('directory-input');
     const changeDirBtn = document.getElementById('change-directory-btn');
