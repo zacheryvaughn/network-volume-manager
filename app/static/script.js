@@ -23,6 +23,19 @@ const API = {
         formData.append('old_name', oldName);
         formData.append('new_name', newName);
         return API.request(`/rename/${path}`, { method: 'POST', body: formData });
+    },
+    // Delete multiple items one by one
+    async deleteMultipleItems(path, itemNames) {
+        const results = { success: [], failed: [] };
+        for (const itemName of itemNames) {
+            try {
+                await API.deleteItem(path, itemName);
+                results.success.push(itemName);
+            } catch (error) {
+                results.failed.push({ name: itemName, error: error.message });
+            }
+        }
+        return results;
     }
 };
 
@@ -33,6 +46,8 @@ class UIManager {
         this.initializeEventListeners();
         this.uploadQueue = [];
         this.isUploading = false;
+        this.selectedItems = new Set();
+        this.selectionMode = false;
     }
 
     initializeComponents() {
@@ -46,7 +61,10 @@ class UIManager {
             queuedFiles: document.getElementById('queued-files'),
             searchInput: document.getElementById('search-input'),
             searchResults: document.getElementById('search-results'),
-            searchContent: document.querySelector('.search-results-content')
+            searchContent: document.querySelector('.search-results-content'),
+            selectToggle: document.getElementById('select-toggle'),
+            deleteSelected: document.getElementById('delete-selected'),
+            browserContent: document.getElementById('browser-content')
         };
 
         // Initialize view mode
@@ -60,6 +78,20 @@ class UIManager {
             this.elements.viewToggle.addEventListener('click', () => {
                 const newMode = this.viewMode === 'grid' ? 'list' : 'grid';
                 this.updateViewMode(newMode);
+            });
+        }
+
+        // Selection mode toggle
+        if (this.elements.selectToggle) {
+            this.elements.selectToggle.addEventListener('click', () => {
+                this.toggleSelectionMode();
+            });
+        }
+
+        // Delete selected items
+        if (this.elements.deleteSelected) {
+            this.elements.deleteSelected.addEventListener('click', () => {
+                this.deleteSelectedItems();
             });
         }
 
@@ -86,9 +118,27 @@ class UIManager {
 
         // Item click handling
         document.addEventListener('click', (e) => {
+            // Handle clicking on item name (navigation)
             if (e.target.classList.contains('item-name') && !e.target.querySelector('.rename-input')) {
-                const path = e.target.dataset.path;
-                if (path) location.href = path;
+                // Don't navigate when in selection mode
+                if (!this.selectionMode) {
+                    const path = e.target.dataset.path;
+                    if (path) location.href = path;
+                }
+            }
+            
+            // Handle clicking on checkboxes
+            if (e.target.classList.contains('item-checkbox')) {
+                const item = e.target.closest('.item');
+                const itemName = item.dataset.name;
+                
+                if (e.target.checked) {
+                    this.selectedItems.add(itemName);
+                } else {
+                    this.selectedItems.delete(itemName);
+                }
+                
+                this.updateDeleteSelectedButton();
             }
         });
 
@@ -149,18 +199,31 @@ class UIManager {
             if (newContent) {
                 document.getElementById('browser-content').innerHTML = newContent.innerHTML;
 
-                // Re-cache the items list element as it's been replaced
+                // Re-cache the elements that were replaced
                 this.elements.itemsList = document.getElementById('items-list');
+                this.elements.browserContent = document.getElementById('browser-content');
 
                 // Reapply the current view mode
                 if (this.elements.itemsList) {
                     this.updateViewMode(this.viewMode, true);
                 }
+                
+                // If in selection mode, restore selection mode state
+                if (this.selectionMode) {
+                    this.elements.browserContent.classList.add('selection-mode');
+                    
+                    // Check any previously selected items that still exist
+                    const checkboxes = document.querySelectorAll('.item-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        const item = checkbox.closest('.item');
+                        if (item && this.selectedItems.has(item.dataset.name)) {
+                            checkbox.checked = true;
+                        }
+                    });
+                }
 
                 // Reinitialize options list event listeners on the new content.
                 this.initializeItemOptionsListeners();
-
-                // Reinitialize any other event listeners as needed
 
                 return true;
             }
@@ -168,6 +231,67 @@ class UIManager {
         } catch (error) {
             console.error('Error refreshing content:', error);
             return false;
+        }
+    }
+    
+    toggleSelectionMode() {
+        this.selectionMode = !this.selectionMode;
+        
+        // Update UI
+        this.elements.selectToggle.classList.toggle('active', this.selectionMode);
+        this.elements.deleteSelected.style.display = this.selectionMode ? 'block' : 'none';
+        this.elements.browserContent.classList.toggle('selection-mode', this.selectionMode);
+        
+        // Clear selection when disabling selection mode
+        if (!this.selectionMode) {
+            this.selectedItems.clear();
+            
+            // Uncheck all checkboxes
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+        }
+        
+        this.updateDeleteSelectedButton();
+    }
+    
+    updateDeleteSelectedButton() {
+        if (this.elements.deleteSelected) {
+            const count = this.selectedItems.size;
+            this.elements.deleteSelected.textContent = count > 0 ?
+                `Delete (${count})` :
+                'Delete';
+            
+            // Disable button if no items selected
+            this.elements.deleteSelected.disabled = count === 0;
+        }
+    }
+    
+    async deleteSelectedItems() {
+        if (this.selectedItems.size === 0) return;
+        
+        const selectedArray = Array.from(this.selectedItems);
+        const confirmMessage = `Are you sure you want to delete ${selectedArray.length} item(s)?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        try {
+            const currentPath = API.getCurrentPath();
+            const results = await API.deleteMultipleItems(currentPath, selectedArray);
+            
+            // Show results message
+            if (results.failed.length > 0) {
+                alert(`Deleted ${results.success.length} item(s). Failed to delete ${results.failed.length} item(s).`);
+            } else {
+                alert(`Successfully deleted ${results.success.length} item(s).`);
+            }
+            
+            // Refresh content and reset selection
+            await this.refreshContent();
+            this.selectedItems.clear();
+            this.updateDeleteSelectedButton();
+            
+        } catch (error) {
+            alert(`Error deleting items: ${error.message}`);
         }
     }
 
