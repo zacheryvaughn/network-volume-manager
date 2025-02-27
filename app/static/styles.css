@@ -121,12 +121,19 @@ button {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 500;
 }
 
 .search-result-item .path {
     font-size: 12px;
-    margin-left: 8px;
+    margin-left: 12px;
     opacity: 0.7;
+    max-width: 40%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--6);
+    text-align: right;
 }
 
 .upload-file-btn, .create-folder-btn {
@@ -337,6 +344,18 @@ button {
     text-decoration: underline;
 }
 
+.move-selected-button {
+    padding: 4px;
+    color: navy;
+    font-size: 16px;
+    background-color: transparent;
+    border: none;
+}
+
+.move-selected-button:hover {
+    text-decoration: underline;
+}
+
 /* Item selection checkbox */
 .item-checkbox {
     display: none;
@@ -536,7 +555,18 @@ button {
     border-radius: 8px;
 }
 
-.rename-btn:hover, .delete-btn:hover {
+.move-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    font-size: 14px;
+    color: var(--0);
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.rename-btn:hover, .move-btn:hover, .delete-btn:hover {
     background-color: var(--E);
 }
 
@@ -613,4 +643,150 @@ button {
     background-color: var(--color-red-600);
     color: #fff;
     margin-bottom: 10px;
+}
+
+/* Modal styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    background-color: var(--F);
+    margin: 15% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 50%;
+    min-width: 300px;
+    max-width: 600px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    animation: modal-appear 0.3s ease-out forwards;
+}
+
+@keyframes modal-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--D);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.close-modal {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover {
+    color: var(--6);
+}
+
+.modal-body {
+    padding: 16px;
+}
+
+.move-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.move-input-container label {
+    font-weight: 500;
+}
+
+.destination-search-container {
+    position: relative;
+    width: 100%;
+}
+
+#destination-path {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--D);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#destination-path:focus {
+    border-color: var(--0);
+    outline: none;
+}
+
+.destination-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 200px;
+    background-color: var(--F);
+    border: 2px solid var(--D);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    overflow-y: auto;
+    z-index: 1100;
+}
+
+.destination-result-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.destination-result-item:hover {
+    background-color: var(--E);
+}
+
+.destination-result-item .folder-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.destination-result-item .folder-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#move-confirm-btn {
+    align-self: flex-end;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background-color: var(--0);
+    color: var(--F);
+    border-radius: 8px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+#move-confirm-btn:hover {
+    background-color: var(--3);
 }

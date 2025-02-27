@@ -168,6 +168,66 @@ class FileSystem:
             return {"message": f"{item_name} deleted successfully"}
         except Exception as e:
             self.raise_error('ACCESS_DENIED', str(e))
+            
+    def move(self, source_path: Path, item_name: str, destination_path: Path) -> Dict[str, str]:
+        """Move a file or folder to another location"""
+        # Validate both source and destination paths
+        self.validate_path(source_path, require_dir=True)
+        self.validate_path(destination_path, require_dir=True)
+        
+        # Get the full paths
+        item_path = source_path / item_name
+        dest_item_path = destination_path / item_name
+        
+        # Validate source item exists
+        self.validate_path(item_path)
+        
+        # Check if an item with the same name exists at the destination
+        if dest_item_path.exists():
+            self.raise_error('ITEM_EXISTS')
+            
+        try:
+            # Use shutil.move which works for both files and directories
+            shutil.move(str(item_path), str(destination_path))
+            return {"message": f"{item_name} moved successfully to {destination_path.name}"}
+        except Exception as e:
+            self.raise_error('ACCESS_DENIED', str(e))
+            
+    def move_multiple(self, source_path: Path, item_names: List[str], destination_path: Path) -> Dict[str, List]:
+        """Move multiple files or folders to another location"""
+        # Validate both source and destination paths
+        self.validate_path(source_path, require_dir=True)
+        self.validate_path(destination_path, require_dir=True)
+        
+        results = {"success": [], "failed": []}
+        
+        for item_name in item_names:
+            # Get the full paths
+            item_path = source_path / item_name
+            dest_item_path = destination_path / item_name
+            
+            try:
+                # Validate source item exists
+                self.validate_path(item_path)
+                
+                # Check if an item with the same name exists at the destination
+                if dest_item_path.exists():
+                    results["failed"].append({"name": item_name, "error": "An item with this name already exists"})
+                    continue
+                    
+                # Use shutil.move which works for both files and directories
+                shutil.move(str(item_path), str(destination_path))
+                results["success"].append(item_name)
+            except Exception as e:
+                error_message = str(e)
+                if "not found" in error_message.lower():
+                    error_message = "Item not found"
+                elif "access" in error_message.lower():
+                    error_message = "Access denied"
+                
+                results["failed"].append({"name": item_name, "error": error_message})
+        
+        return results
 
 # Initialize file system manager
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -208,9 +268,13 @@ async def change_directory(request: Request):
 
 # Route handlers
 @app.get("/search")
-async def search(query: str = ""):
+async def search(query: str = "", folders_only: bool = False):
     """Search for files and folders"""
-    return fs.search(query)
+    results = fs.search(query)
+    # If folders_only is True, return only folders
+    if folders_only:
+        results["files"] = []
+    return results
 
 @app.get("/")
 @app.get("/{path:path}")
@@ -254,3 +318,13 @@ async def rename_item(path: str, old_name: str = Form(...), new_name: str = Form
 async def delete_item(path: str, item_name: str = Form(...)):
     """Delete a file or folder"""
     return fs.delete(UPLOAD_DIR / path, item_name)
+
+@app.post("/move/{path:path}")
+async def move_item(path: str, item_name: str = Form(...), destination: str = Form(...)):
+    """Move a file or folder to a new location"""
+    # Convert relative destination path to absolute path
+    dest_path = UPLOAD_DIR / destination
+    source_path = UPLOAD_DIR / path
+    
+    # Call the move method
+    return fs.move(source_path, item_name, dest_path)

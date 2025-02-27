@@ -24,6 +24,12 @@ const API = {
         formData.append('new_name', newName);
         return API.request(`/rename/${path}`, { method: 'POST', body: formData });
     },
+    moveItem: (path, itemName, destination) => {
+        const formData = new FormData();
+        formData.append('item_name', itemName);
+        formData.append('destination', destination);
+        return API.request(`/move/${path}`, { method: 'POST', body: formData });
+    },
     // Delete multiple items one by one
     async deleteMultipleItems(path, itemNames) {
         const results = { success: [], failed: [] };
@@ -36,7 +42,24 @@ const API = {
             }
         }
         return results;
-    }
+    },
+    
+    // Move multiple items one by one
+    async moveMultipleItems(path, itemNames, destination) {
+        const results = { success: [], failed: [] };
+        for (const itemName of itemNames) {
+            try {
+                await API.moveItem(path, itemName, destination);
+                results.success.push(itemName);
+            } catch (error) {
+                results.failed.push({ name: itemName, error: error.message });
+            }
+        }
+        return results;
+    },
+    
+    // Search for folders only
+    searchFolders: (query) => API.request(`/search?query=${encodeURIComponent(query)}&folders_only=true`)
 };
 
 // UI Manager handles all UI operations
@@ -64,6 +87,7 @@ class UIManager {
             searchContent: document.querySelector('.search-results-content'),
             selectToggle: document.getElementById('select-toggle'),
             deleteSelected: document.getElementById('delete-selected'),
+            moveSelected: document.getElementById('move-selected'),
             browserContent: document.getElementById('browser-content')
         };
 
@@ -92,6 +116,13 @@ class UIManager {
         if (this.elements.deleteSelected) {
             this.elements.deleteSelected.addEventListener('click', () => {
                 this.deleteSelectedItems();
+            });
+        }
+        
+        // Move selected items
+        if (this.elements.moveSelected) {
+            this.elements.moveSelected.addEventListener('click', () => {
+                this.moveSelectedItems();
             });
         }
 
@@ -138,7 +169,7 @@ class UIManager {
                     this.selectedItems.delete(itemName);
                 }
                 
-                this.updateDeleteSelectedButton();
+                this.updateSelectedButtons();
             }
         });
 
@@ -240,6 +271,7 @@ class UIManager {
         // Update UI
         this.elements.selectToggle.classList.toggle('active', this.selectionMode);
         this.elements.deleteSelected.style.display = this.selectionMode ? 'block' : 'none';
+        this.elements.moveSelected.style.display = this.selectionMode ? 'block' : 'none';
         this.elements.browserContent.classList.toggle('selection-mode', this.selectionMode);
         
         // Clear selection when disabling selection mode
@@ -251,18 +283,30 @@ class UIManager {
             checkboxes.forEach(checkbox => checkbox.checked = false);
         }
         
-        this.updateDeleteSelectedButton();
+        this.updateSelectedButtons();
     }
     
-    updateDeleteSelectedButton() {
+    updateSelectedButtons() {
+        const count = this.selectedItems.size;
+        
+        // Update delete button
         if (this.elements.deleteSelected) {
-            const count = this.selectedItems.size;
             this.elements.deleteSelected.textContent = count > 0 ?
                 `Delete (${count})` :
                 'Delete';
             
             // Disable button if no items selected
             this.elements.deleteSelected.disabled = count === 0;
+        }
+        
+        // Update move button
+        if (this.elements.moveSelected) {
+            this.elements.moveSelected.textContent = count > 0 ?
+                `Move (${count})` :
+                'Move';
+            
+            // Disable button if no items selected
+            this.elements.moveSelected.disabled = count === 0;
         }
     }
     
@@ -288,10 +332,96 @@ class UIManager {
             // Refresh content and reset selection
             await this.refreshContent();
             this.selectedItems.clear();
-            this.updateDeleteSelectedButton();
+            this.updateSelectedButtons();
             
         } catch (error) {
             alert(`Error deleting items: ${error.message}`);
+        }
+    }
+    
+    moveSelectedItems() {
+        if (this.selectedItems.size === 0) return;
+        
+        // Get selected items
+        const selectedArray = Array.from(this.selectedItems);
+        
+        // Update the modal title and message
+        const modalTitle = document.getElementById('move-modal-title');
+        const moveItemMessage = document.getElementById('move-item-message');
+        
+        if (modalTitle) {
+            modalTitle.textContent = 'Move Items';
+        }
+        
+        if (moveItemMessage) {
+            moveItemMessage.textContent = `Moving ${selectedArray.length} item(s)`;
+        }
+        
+        // Get the current path and set as default in the destination input
+        const currentPath = API.getCurrentPath();
+        const destinationInput = document.getElementById('destination-path');
+        if (destinationInput) {
+            destinationInput.value = currentPath;
+        }
+        
+        // Update the move confirm button click handler
+        const moveConfirmBtn = document.getElementById('move-confirm-btn');
+        if (moveConfirmBtn) {
+            // Remove any existing event listeners (not possible directly, so we clone and replace)
+            const newMoveBtn = moveConfirmBtn.cloneNode(true);
+            moveConfirmBtn.parentNode.replaceChild(newMoveBtn, moveConfirmBtn);
+            
+            // Add new event listener for multiple items
+            newMoveBtn.addEventListener('click', async () => {
+                const destinationPath = document.getElementById('destination-path');
+                const destination = destinationPath.value.trim();
+                
+                if (!destination) {
+                    alert('Please enter a destination path');
+                    return;
+                }
+                
+                try {
+                    const currentPath = API.getCurrentPath();
+                    const results = await API.moveMultipleItems(currentPath, selectedArray, destination);
+                    
+                    // Show results message
+                    if (results.failed.length > 0) {
+                        alert(`Moved ${results.success.length} item(s). Failed to move ${results.failed.length} item(s).`);
+                    } else {
+                        alert(`Successfully moved ${results.success.length} item(s).`);
+                    }
+                    
+                    // Hide the modal
+                    const moveModal = document.getElementById('move-modal');
+                    if (moveModal) {
+                        moveModal.style.display = 'none';
+                    }
+                    
+                    // Refresh content and reset selection
+                    await this.refreshContent();
+                    this.selectedItems.clear();
+                    this.updateSelectedButtons();
+                    
+                    // Reinitialize the move modal for future use with single items
+                    setupMoveModal();
+                    
+                } catch (error) {
+                    alert(`Error moving items: ${error.message}`);
+                }
+            });
+        }
+        
+        // Show the modal
+        const moveModal = document.getElementById('move-modal');
+        if (moveModal) {
+            moveModal.style.display = 'block';
+            
+            // Focus on the input field
+            if (destinationInput) {
+                destinationInput.focus();
+                destinationInput.select();
+            }
         }
     }
 
@@ -400,23 +530,38 @@ class UIManager {
                 return;
             }
 
-            let html = results.folders.map(folder => `
-            <div class="search-result-item" onclick="location.href='./${folder.path}'">
-                <span class="icon">📁</span>
-                <span class="name">${folder.name}</span>
-                <span class="path">${folder.path}</span>
-            </div>
-        `).join('');
+            let html = results.folders.map(folder => {
+                // For folders, just show folder name and immediate parent folder
+                const pathParts = folder.path.split('/');
+                const folderName = pathParts.pop() || folder.name;
+                // Get only the immediate parent folder name
+                const parentFolder = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
+                
+                return `
+                <div class="search-result-item" onclick="location.href='./${folder.path}'">
+                    <span class="icon">📁</span>
+                    <span class="name">${folderName}</span>
+                    <span class="path">${parentFolder}/</span>
+                </div>
+                `;
+            }).join('');
 
             html += results.files.map(file => {
-                const dirPath = file.path.split('/').slice(0, -1).join('/');
+                // For files, show filename and immediate parent folder
+                const pathParts = file.path.split('/');
+                const fileName = pathParts.pop() || file.name;
+                // Get only the immediate parent folder name
+                const parentFolder = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
+                // Full path to the containing folder for navigation
+                const containingFolder = pathParts.length > 0 ? pathParts.join('/') : '/';
+                
                 return `
-            <div class="search-result-item" onclick="location.href='./${dirPath}'">
-                <span class="icon">📄</span>
-                <span class="name">${file.name}</span>
-                <span class="path">${file.path}</span>
-            </div>
-          `;
+                <div class="search-result-item" onclick="location.href='./${containingFolder}'">
+                    <span class="icon">📄</span>
+                    <span class="name">${fileName}</span>
+                    <span class="path">${parentFolder}/</span>
+                </div>
+                `;
             }).join('');
 
             this.elements.searchContent.innerHTML = html;
@@ -536,6 +681,118 @@ function debounce(func, wait) {
     };
 }
 
+// Modal functionality
+function setupMoveModal() {
+    const moveModal = document.getElementById('move-modal');
+    const closeModalBtn = document.querySelector('.close-modal');
+    const moveConfirmBtn = document.getElementById('move-confirm-btn');
+    const destinationPath = document.getElementById('destination-path');
+    const destinationSearchResults = document.getElementById('destination-search-results');
+    
+    // Close modal when clicking the X
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            moveModal.style.display = 'none';
+        });
+    }
+    
+    // Close modal when clicking outside the modal content
+    window.addEventListener('click', (e) => {
+        if (e.target === moveModal) {
+            moveModal.style.display = 'none';
+        }
+    });
+    
+    // Folder search functionality
+    if (destinationPath) {
+        destinationPath.addEventListener('input', debounce(async () => {
+            const query = destinationPath.value.trim();
+            if (!query) {
+                destinationSearchResults.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const results = await API.searchFolders(query);
+                if (!results.folders.length) {
+                    destinationSearchResults.style.display = 'none';
+                    return;
+                }
+                
+                let html = results.folders.map(folder => {
+                    const pathParts = folder.path.split('/');
+                    const folderName = pathParts.pop() || folder.name;
+                    
+                    return `
+                    <div class="destination-result-item" data-path="${folder.path}">
+                        <span class="folder-icon">📁</span>
+                        <span class="folder-name">${folder.path}</span>
+                    </div>
+                    `;
+                }).join('');
+                
+                destinationSearchResults.innerHTML = html;
+                destinationSearchResults.style.display = 'block';
+                
+                // Add click handlers to search results
+                const resultItems = destinationSearchResults.querySelectorAll('.destination-result-item');
+                resultItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        destinationPath.value = item.dataset.path;
+                        destinationSearchResults.style.display = 'none';
+                    });
+                });
+            } catch (error) {
+                console.error('Error searching folders:', error);
+                destinationSearchResults.style.display = 'none';
+            }
+        }, 300));
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!destinationPath.contains(e.target) && !destinationSearchResults.contains(e.target)) {
+                destinationSearchResults.style.display = 'none';
+            }
+        });
+        
+        // Close search results on escape key
+        destinationPath.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                destinationSearchResults.style.display = 'none';
+            } else if (e.key === 'Enter' && destinationSearchResults.style.display === 'block') {
+                // Select the first result on enter
+                const firstResult = destinationSearchResults.querySelector('.destination-result-item');
+                if (firstResult) {
+                    destinationPath.value = firstResult.dataset.path;
+                    destinationSearchResults.style.display = 'none';
+                    e.preventDefault(); // Prevent form submission
+                }
+            }
+        });
+    }
+    
+    // Handle move confirmation
+    if (moveConfirmBtn) {
+        moveConfirmBtn.addEventListener('click', async () => {
+            const itemName = document.getElementById('move-item-name').textContent;
+            const destination = destinationPath.value.trim();
+            
+            if (!destination) {
+                alert('Please enter a destination path');
+                return;
+            }
+            
+            try {
+                await API.moveItem(API.getCurrentPath(), itemName, destination);
+                moveModal.style.display = 'none';
+                await ui?.refreshContent();
+            } catch (error) {
+                alert(`Error moving item: ${error.message}`);
+            }
+        });
+    }
+}
+
 // Directory change handler
 async function changeDirectory() {
     const directoryInput = document.getElementById('directory-input');
@@ -596,11 +853,59 @@ document.addEventListener('DOMContentLoaded', () => {
         changeDirBtn.classList.add('locked');
         changeDirBtn.addEventListener('click', changeDirectory);
     }
+    
+    // Setup move modal
+    setupMoveModal();
 });
 
 // Global interface
 window.startRename = (element, isFolder) => ui?.startRename(element, isFolder);
 window.deleteItem = (name, isFolder) => ui?.deleteItem(name, isFolder);
+window.startMove = (name, isFile) => {
+    // Reset modal to single-item state
+    const modalTitle = document.getElementById('move-modal-title');
+    if (modalTitle) {
+        modalTitle.textContent = 'Move Item';
+    }
+    
+    // Set the item name in the modal
+    const itemNameElement = document.getElementById('move-item-name');
+    const moveItemMessage = document.getElementById('move-item-message');
+    if (itemNameElement) {
+        itemNameElement.textContent = name;
+    }
+    if (moveItemMessage) {
+        moveItemMessage.textContent = 'Moving: ';
+        const span = document.createElement('span');
+        span.id = 'move-item-name';
+        span.textContent = name;
+        moveItemMessage.innerHTML = 'Moving: ';
+        moveItemMessage.appendChild(span);
+    }
+    
+    // Get the current path and set as default in the destination input
+    const currentPath = API.getCurrentPath();
+    const destinationInput = document.getElementById('destination-path');
+    if (destinationInput) {
+        destinationInput.value = currentPath;
+    }
+    
+    // Reinitialize the move modal for a single item
+    setupMoveModal();
+    
+    // Show the modal
+    const moveModal = document.getElementById('move-modal');
+    if (moveModal) {
+        moveModal.style.display = 'block';
+        
+        // Focus on the input field
+        if (destinationInput) {
+            destinationInput.focus();
+            destinationInput.select();
+        }
+    }
+};
+
 window.createFolder = async () => {
     try {
         await API.createFolder(API.getCurrentPath());

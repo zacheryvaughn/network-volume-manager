@@ -60,6 +60,10 @@
             </div>
 
             <div id="browser-header-right">
+                <!-- Move selected button (hidden by default) -->
+                <button id="move-selected" class="header-button move-selected-button" style="display: none;" title="Move selected items">
+                    <span>Move</span>
+                </button>
                 <!-- Delete selected button (hidden by default) -->
                 <button id="delete-selected" class="header-button delete-selected-button" style="display: none;" title="Delete selected items">
                     <span>Delete</span>
@@ -101,6 +105,7 @@
                             </button>
                             <div class="item-options">
                                 <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
+                                <button class="move-btn" onclick="startMove('{{ folder }}', false)">Move</button>
                                 <button class="delete-btn" onclick="deleteItem('{{ folder }}', false)">Delete</button>
                             </div>
                         </div>
@@ -135,6 +140,7 @@
                             </button>
                             <div class="item-options">
                                 <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
+                                <button class="move-btn" onclick="startMove('{{ file.name }}', true)">Move</button>
                                 <button class="delete-btn" onclick="deleteItem('{{ file.name }}', false)">Delete</button>
                             </div>
                         </div>
@@ -145,6 +151,27 @@
             </div>
         </div>
     </main>
+
+    <!-- Move dialog modal -->
+    <div id="move-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="move-modal-title">Move Item</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="move-item-message">Moving: <span id="move-item-name"></span></p>
+                <div class="move-input-container">
+                    <label for="destination-path">Destination:</label>
+                    <div class="destination-search-container">
+                        <input type="text" id="destination-path" placeholder="Enter destination path...">
+                        <div id="destination-search-results" class="destination-search-results" style="display: none;"></div>
+                    </div>
+                    <button id="move-confirm-btn">Move</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/script.js"></script>
 </body>
