@@ -418,7 +418,6 @@ button {
     color: var(--6);
     font-size: 14px;
     font-weight: 600;
-    margin-right: 10px;
 }
 
 /* Buttons */
@@ -538,8 +537,8 @@ button {
 
 .items-list.grid-view .item-size {
     position: absolute;
-    bottom: 6px;
-    right: 10px;
+    top: 34px;
+    left: 60px;
     margin-right: 0;
 }
 
