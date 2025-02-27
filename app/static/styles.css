@@ -414,6 +414,13 @@ button {
     align-items: center;
 }
 
+.item-size {
+    color: var(--6);
+    font-size: 14px;
+    font-weight: 600;
+    margin-right: 10px;
+}
+
 /* Buttons */
 .options-btn {
     display: flex;
@@ -527,6 +534,13 @@ button {
     right: 4px;
     width: auto;
     justify-content: center;
+}
+
+.items-list.grid-view .item-size {
+    position: absolute;
+    bottom: 6px;
+    right: 10px;
+    margin-right: 0;
 }
 
 /* Messages */

@@ -44,14 +44,23 @@ class FileSystem:
         if require_dir and not path.is_dir():
             self.raise_error('DIRECTORY_NOT_FOUND')
 
-    def get_contents(self, path: Path) -> Dict[str, List[str]]:
+    def get_contents(self, path: Path) -> Dict[str, List]:
         """Get directory contents and path parts"""
         self.validate_path(path, require_dir=True)
         
         contents = {"files": [], "folders": [], "path_parts": []}
         
         for item in path.iterdir():
-            contents["files" if item.is_file() else "folders"].append(item.name)
+            if item.is_file():
+                # Add file with its size
+                try:
+                    file_size = item.stat().st_size
+                    contents["files"].append({"name": item.name, "size": file_size})
+                except Exception:
+                    # If we can't get size for some reason, show with no size
+                    contents["files"].append({"name": item.name, "size": 0})
+            else:
+                contents["folders"].append(item.name)
         
         rel_path = path.relative_to(self.base_dir)
         contents["path_parts"] = str(rel_path).split('/') if str(rel_path) != '.' else []
