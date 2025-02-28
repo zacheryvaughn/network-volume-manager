@@ -5,44 +5,43 @@ from fastapi.templating import Jinja2Templates
 import aiofiles
 import shutil
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Union, Any
 
 # Create FastAPI app
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
+class FileSystemError:
+    """Error definitions for file system operations"""
+    VOLUME_NOT_MOUNTED = ("Volume not mounted", 400)
+    PATH_NOT_FOUND = ("Path not found", 404)
+    ACCESS_DENIED = ("Access denied", 403)
+    DIRECTORY_NOT_FOUND = ("Directory not found", 404)
+    NO_FILE_UPLOADED = ("No file uploaded", 400)
+    ITEM_EXISTS = ("An item with this name already exists", 400)
+
 class FileSystem:
     """Handles file system operations and validation"""
     
-    # Error definitions
-    ERRORS = {
-        'VOLUME_NOT_MOUNTED': ("Volume not mounted", 400),
-        'PATH_NOT_FOUND': ("Path not found", 404),
-        'ACCESS_DENIED': ("Access denied", 403),
-        'DIRECTORY_NOT_FOUND': ("Directory not found", 404),
-        'NO_FILE_UPLOADED': ("No file uploaded", 400),
-        'ITEM_EXISTS': ("An item with this name already exists", 400)
-    }
-
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
 
-    def raise_error(self, error_key: str, detail: Optional[str] = None):
+    def raise_error(self, error: Tuple[str, int], detail: Optional[str] = None):
         """Raise an HTTP exception with predefined error messages"""
-        message, status_code = self.ERRORS[error_key]
+        message, status_code = error
         raise HTTPException(status_code=status_code, detail=detail or message)
 
     def validate_path(self, path: Path, require_dir: bool = False) -> None:
         """Validate path exists and is within base directory"""
         if not self.base_dir.exists():
-            self.raise_error('VOLUME_NOT_MOUNTED')
+            self.raise_error(FileSystemError.VOLUME_NOT_MOUNTED)
         if not path.exists():
-            self.raise_error('PATH_NOT_FOUND')
+            self.raise_error(FileSystemError.PATH_NOT_FOUND)
         if not str(path).startswith(str(self.base_dir)):
-            self.raise_error('ACCESS_DENIED')
+            self.raise_error(FileSystemError.ACCESS_DENIED)
         if require_dir and not path.is_dir():
-            self.raise_error('DIRECTORY_NOT_FOUND')
+            self.raise_error(FileSystemError.DIRECTORY_NOT_FOUND)
 
     def get_contents(self, path: Path) -> Dict[str, List]:
         """Get directory contents and path parts"""
@@ -79,7 +78,8 @@ class FileSystem:
                     item_rel_path = f"{rel_path}/{item.name}" if rel_path else item.name
                     
                     if query.lower() in item.name.lower():
-                        results["files" if item.is_file() else "folders"].append({
+                        item_type = "files" if item.is_file() else "folders"
+                        results[item_type].append({
                             "name": item.name,
                             "path": item_rel_path
                         })
@@ -101,11 +101,11 @@ class FileSystem:
         self.validate_path(path, require_dir=True)
         
         if not file:
-            self.raise_error('NO_FILE_UPLOADED')
+            self.raise_error(FileSystemError.NO_FILE_UPLOADED)
         
         file_path = path / file.filename
         if file_path.exists():
-            self.raise_error('ITEM_EXISTS')
+            self.raise_error(FileSystemError.ITEM_EXISTS)
         
         temp_path = file_path.with_suffix('.tmp')
         try:
@@ -116,7 +116,7 @@ class FileSystem:
         except Exception as e:
             if temp_path.exists():
                 temp_path.unlink()
-            self.raise_error('ACCESS_DENIED', str(e))
+            self.raise_error(FileSystemError.ACCESS_DENIED, str(e))
 
     def create_folder(self, path: Path) -> Dict[str, str]:
         """Create a new folder with unique name"""
@@ -134,90 +134,75 @@ class FileSystem:
             (path / folder_name).mkdir()
             return {"message": f"Folder {folder_name} created successfully", "name": folder_name}
         except Exception as e:
-            self.raise_error('ACCESS_DENIED', str(e))
+            self.raise_error(FileSystemError.ACCESS_DENIED, str(e))
 
-    def rename(self, path: Path, old_name: str, new_name: str) -> Dict[str, str]:
-        """Rename a file or folder"""
-        self.validate_path(path, require_dir=True)
-        
-        old_path = path / old_name
-        new_path = path / new_name
-        
-        self.validate_path(old_path)
-        if new_path.exists():
-            self.raise_error('ITEM_EXISTS')
+    def file_operation(self, operation: str, source_path: Path, item_name: str,
+                      destination_path: Optional[Path] = None, new_name: Optional[str] = None) -> Dict[str, Any]:
+        """Generic file operation handler for rename, delete, and move operations"""
+        self.validate_path(source_path, require_dir=True)
+        item_path = source_path / item_name
+        self.validate_path(item_path)
         
         try:
-            old_path.rename(new_path)
-            return {"message": f"Renamed successfully to {new_name}"}
+            if operation == "rename":
+                if not new_name:
+                    self.raise_error(FileSystemError.ACCESS_DENIED, "New name is required")
+                new_path = source_path / new_name
+                if new_path.exists():
+                    self.raise_error(FileSystemError.ITEM_EXISTS)
+                item_path.rename(new_path)
+                return {"message": f"Renamed successfully to {new_name}"}
+                
+            elif operation == "delete":
+                if item_path.is_file():
+                    item_path.unlink(missing_ok=True)
+                else:
+                    shutil.rmtree(item_path, ignore_errors=True)
+                return {"message": f"{item_name} deleted successfully"}
+                
+            elif operation == "move":
+                if not destination_path:
+                    self.raise_error(FileSystemError.ACCESS_DENIED, "Destination path is required")
+                self.validate_path(destination_path, require_dir=True)
+                dest_item_path = destination_path / item_name
+                if dest_item_path.exists():
+                    self.raise_error(FileSystemError.ITEM_EXISTS)
+                shutil.move(str(item_path), str(destination_path))
+                return {"message": f"{item_name} moved successfully to {destination_path.name}"}
+                
+            else:
+                self.raise_error(FileSystemError.ACCESS_DENIED, f"Unknown operation: {operation}")
+                
+        except HTTPException:
+            raise
         except Exception as e:
-            self.raise_error('ACCESS_DENIED', str(e))
+            self.raise_error(FileSystemError.ACCESS_DENIED, str(e))
+    
+    def rename(self, path: Path, old_name: str, new_name: str) -> Dict[str, str]:
+        """Rename a file or folder"""
+        return self.file_operation("rename", path, old_name, new_name=new_name)
 
     def delete(self, path: Path, item_name: str) -> Dict[str, str]:
         """Delete a file or folder"""
-        self.validate_path(path, require_dir=True)
-        
-        item_path = path / item_name
-        self.validate_path(item_path)
-        
-        try:
-            if item_path.is_file():
-                item_path.unlink(missing_ok=True)
-            else:
-                shutil.rmtree(item_path, ignore_errors=True)
-            return {"message": f"{item_name} deleted successfully"}
-        except Exception as e:
-            self.raise_error('ACCESS_DENIED', str(e))
+        return self.file_operation("delete", path, item_name)
             
     def move(self, source_path: Path, item_name: str, destination_path: Path) -> Dict[str, str]:
         """Move a file or folder to another location"""
-        # Validate both source and destination paths
-        self.validate_path(source_path, require_dir=True)
-        self.validate_path(destination_path, require_dir=True)
-        
-        # Get the full paths
-        item_path = source_path / item_name
-        dest_item_path = destination_path / item_name
-        
-        # Validate source item exists
-        self.validate_path(item_path)
-        
-        # Check if an item with the same name exists at the destination
-        if dest_item_path.exists():
-            self.raise_error('ITEM_EXISTS')
-            
-        try:
-            # Use shutil.move which works for both files and directories
-            shutil.move(str(item_path), str(destination_path))
-            return {"message": f"{item_name} moved successfully to {destination_path.name}"}
-        except Exception as e:
-            self.raise_error('ACCESS_DENIED', str(e))
+        return self.file_operation("move", source_path, item_name, destination_path=destination_path)
             
     def move_multiple(self, source_path: Path, item_names: List[str], destination_path: Path) -> Dict[str, List]:
         """Move multiple files or folders to another location"""
-        # Validate both source and destination paths
         self.validate_path(source_path, require_dir=True)
         self.validate_path(destination_path, require_dir=True)
         
         results = {"success": [], "failed": []}
         
         for item_name in item_names:
-            # Get the full paths
-            item_path = source_path / item_name
-            dest_item_path = destination_path / item_name
-            
             try:
-                # Validate source item exists
-                self.validate_path(item_path)
-                
-                # Check if an item with the same name exists at the destination
-                if dest_item_path.exists():
-                    results["failed"].append({"name": item_name, "error": "An item with this name already exists"})
-                    continue
-                    
-                # Use shutil.move which works for both files and directories
-                shutil.move(str(item_path), str(destination_path))
+                self.move(source_path, item_name, destination_path)
                 results["success"].append(item_name)
+            except HTTPException as e:
+                results["failed"].append({"name": item_name, "error": e.detail})
             except Exception as e:
                 error_message = str(e)
                 if "not found" in error_message.lower():
@@ -325,11 +310,7 @@ async def move_item(path: str, item_name: str = Form(...), destination: str = Fo
     # Convert relative destination path to absolute path
     # If destination is empty or just a slash, use the root directory
     destination = destination.strip()
-    if destination == '' or destination == '/':
-        dest_path = UPLOAD_DIR
-    else:
-        dest_path = UPLOAD_DIR / destination
-    
+    dest_path = UPLOAD_DIR if destination in ('', '/') else UPLOAD_DIR / destination
     source_path = UPLOAD_DIR / path
     
     # Call the move method
