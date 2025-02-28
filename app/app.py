@@ -323,7 +323,13 @@ async def delete_item(path: str, item_name: str = Form(...)):
 async def move_item(path: str, item_name: str = Form(...), destination: str = Form(...)):
     """Move a file or folder to a new location"""
     # Convert relative destination path to absolute path
-    dest_path = UPLOAD_DIR / destination
+    # If destination is empty or just a slash, use the root directory
+    destination = destination.strip()
+    if destination == '' or destination == '/':
+        dest_path = UPLOAD_DIR
+    else:
+        dest_path = UPLOAD_DIR / destination
+    
     source_path = UPLOAD_DIR / path
     
     # Call the move method

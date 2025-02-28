@@ -346,7 +346,6 @@ button {
 
 .move-selected-button {
     padding: 4px;
-    color: navy;
     font-size: 16px;
     background-color: transparent;
     border: none;
@@ -409,7 +408,7 @@ button {
 
 /* Content Area */
 #browser-content {
-    padding: 22px 22px 60px 22px;
+    padding: 22px 22px 120px 22px;
     overflow: auto;
 }
 
@@ -633,14 +632,12 @@ button {
 /* Messages */
 .flash-message {
     padding: 10px 20px;
-    background-color: var(--color-blue-600);
     color: #fff;
     margin-bottom: 10px;
 }
 
 .error-message {
     padding: 10px 20px;
-    background-color: var(--color-red-600);
     color: #fff;
     margin-bottom: 10px;
 }
@@ -725,17 +722,35 @@ button {
     width: 100%;
 }
 
-#destination-path {
+.path-prefix-container {
+    display: flex;
+    align-items: center;
     width: 100%;
-    padding: 10px;
     border: 2px solid var(--D);
     border-radius: 8px;
-    font-size: 14px;
+    overflow: hidden;
 }
 
-#destination-path:focus {
-    border-color: var(--0);
+.path-prefix {
+    padding: 10px;
+    background-color: var(--E);
+    color: var(--6);
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    border-right: 1px solid var(--D);
+}
+
+#destination-path {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    font-size: 14px;
     outline: none;
+}
+
+.path-prefix-container:focus-within {
+    border-color: var(--0);
 }
 
 .destination-search-results {

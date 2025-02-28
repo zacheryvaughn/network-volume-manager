@@ -322,17 +322,16 @@ class UIManager {
             const currentPath = API.getCurrentPath();
             const results = await API.deleteMultipleItems(currentPath, selectedArray);
             
-            // Show results message
+            // Only show alert for failures
             if (results.failed.length > 0) {
-                alert(`Deleted ${results.success.length} item(s). Failed to delete ${results.failed.length} item(s).`);
-            } else {
-                alert(`Successfully deleted ${results.success.length} item(s).`);
+                alert(`Failed to delete ${results.failed.length} item(s).`);
             }
             
-            // Refresh content and reset selection
+            // Refresh content, reset selection, and disable selection mode
             await this.refreshContent();
             this.selectedItems.clear();
             this.updateSelectedButtons();
+            this.toggleSelectionMode(); // Disable selection mode
             
         } catch (error) {
             alert(`Error deleting items: ${error.message}`);
@@ -376,20 +375,18 @@ class UIManager {
                 const destinationPath = document.getElementById('destination-path');
                 const destination = destinationPath.value.trim();
                 
-                if (!destination) {
-                    alert('Please enter a destination path');
-                    return;
-                }
+                // Empty destination is now allowed (moves to root)
+                // No validation needed here
                 
                 try {
                     const currentPath = API.getCurrentPath();
-                    const results = await API.moveMultipleItems(currentPath, selectedArray, destination);
+                    // If destination is empty, move to root
+                    const finalDestination = destination.trim() === '' ? '' : destination;
+                    const results = await API.moveMultipleItems(currentPath, selectedArray, finalDestination);
                     
-                    // Show results message
+                    // Only show alert for failures
                     if (results.failed.length > 0) {
-                        alert(`Moved ${results.success.length} item(s). Failed to move ${results.failed.length} item(s).`);
-                    } else {
-                        alert(`Successfully moved ${results.success.length} item(s).`);
+                        alert(`Failed to move ${results.failed.length} item(s).`);
                     }
                     
                     // Hide the modal
@@ -398,10 +395,11 @@ class UIManager {
                         moveModal.style.display = 'none';
                     }
                     
-                    // Refresh content and reset selection
+                    // Refresh content, reset selection, and disable selection mode
                     await this.refreshContent();
                     this.selectedItems.clear();
                     this.updateSelectedButtons();
+                    this.toggleSelectionMode(); // Disable selection mode
                     
                     // Reinitialize the move modal for future use with single items
                     setupMoveModal();
@@ -654,6 +652,11 @@ class UIManager {
         try {
             await API.deleteItem(API.getCurrentPath(), name);
             await this.refreshContent();
+            
+            // If in selection mode, disable it after delete
+            if (this.selectionMode) {
+                this.toggleSelectionMode();
+            }
         } catch (error) {
             alert(error.message);
         }
@@ -777,15 +780,20 @@ function setupMoveModal() {
             const itemName = document.getElementById('move-item-name').textContent;
             const destination = destinationPath.value.trim();
             
-            if (!destination) {
-                alert('Please enter a destination path');
-                return;
-            }
+            // Empty destination is now allowed (moves to root)
+            // No validation needed here
             
             try {
-                await API.moveItem(API.getCurrentPath(), itemName, destination);
+                // If destination is empty, move to root
+                const finalDestination = destination.trim() === '' ? '' : destination;
+                await API.moveItem(API.getCurrentPath(), itemName, finalDestination);
                 moveModal.style.display = 'none';
                 await ui?.refreshContent();
+                
+                // If in selection mode, disable it after move
+                if (ui?.selectionMode) {
+                    ui.toggleSelectionMode();
+                }
             } catch (error) {
                 alert(`Error moving item: ${error.message}`);
             }
