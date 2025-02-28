@@ -128,6 +128,7 @@ class UIManager {
         this.selectedItems = new Set();
         this.selectionMode = false;
         this.moveModalInitialized = false;
+        this.currentXhr = null; // Store the current XMLHttpRequest
     }
 
     initializeComponents() {
@@ -507,7 +508,20 @@ class UIManager {
             const item = DOM.createElementWithHTML('div', 'queue-item', `
                 <div class="queue-item-name">${file.name}</div>
                 <div class="queue-item-size">${formatFileSize(file.size)}</div>
+                <button class="cancel-upload-btn" title="Cancel upload">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512">
+                        <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
+                    </svg>
+                </button>
             `);
+            
+            // Add event listener to the cancel button
+            const cancelBtn = item.querySelector('.cancel-upload-btn');
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.cancelUpload(file);
+            });
+            
             this.elements.queuedFiles.appendChild(item);
             this.uploadQueue.push({ file, element: item });
         });
@@ -525,6 +539,10 @@ class UIManager {
         this.isUploading = true;
         const { file, element } = this.uploadQueue[0];
         element.classList.add('uploading');
+        
+        // Make the cancel button more prominent during upload
+        const cancelBtn = element.querySelector('.cancel-upload-btn');
+        if (cancelBtn) cancelBtn.classList.add('uploading');
 
         try {
             await this.uploadFile(file);
@@ -536,16 +554,33 @@ class UIManager {
             }, 300);
             await this.refreshContent();
         } catch (error) {
-            alert(error.message);
-            element.remove();
-            this.uploadQueue.shift();
-            this.processUploadQueue();
+            if (error.message === 'Upload canceled') {
+                // Handle canceled upload
+                element.classList.add('canceled');
+                setTimeout(() => {
+                    element.style.opacity = '0';
+                    setTimeout(() => {
+                        element.remove();
+                        this.uploadQueue.shift();
+                        this.processUploadQueue();
+                    }, 300);
+                }, 1000);
+            } else {
+                // Handle other errors
+                alert(error.message);
+                element.remove();
+                this.uploadQueue.shift();
+                this.processUploadQueue();
+            }
         }
     }
 
     uploadFile(file) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
+            // Store the current XHR so it can be aborted if needed
+            this.currentXhr = xhr;
+            
             xhr.open('POST', `/upload/${API.getCurrentPath() || '.'}`, true);
 
             xhr.upload.onprogress = (e) => {
@@ -556,6 +591,7 @@ class UIManager {
             };
 
             xhr.onload = () => {
+                this.currentXhr = null;
                 if (xhr.status === 200 || xhr.status === 303) {
                     resolve();
                 } else {
@@ -568,12 +604,42 @@ class UIManager {
                 }
             };
 
-            xhr.onerror = () => reject(new Error('Network error during upload'));
+            xhr.onerror = () => {
+                this.currentXhr = null;
+                reject(new Error('Network error during upload'));
+            };
+            
+            xhr.onabort = () => {
+                this.currentXhr = null;
+                reject(new Error('Upload canceled'));
+            };
 
             const formData = new FormData();
             formData.append('file', file);
             xhr.send(formData);
         });
+    }
+    
+    cancelUpload(file) {
+        // If this is the currently uploading file
+        if (this.isUploading && this.uploadQueue.length > 0 && this.uploadQueue[0].file === file) {
+            // Abort the current XHR request
+            if (this.currentXhr) {
+                this.currentXhr.abort();
+                this.currentXhr = null;
+            }
+        } else {
+            // Remove from queue if it's not the current upload
+            const index = this.uploadQueue.findIndex(item => item.file === file);
+            if (index !== -1) {
+                const { element } = this.uploadQueue[index];
+                element.style.opacity = '0';
+                setTimeout(() => {
+                    element.remove();
+                }, 300);
+                this.uploadQueue.splice(index, 1);
+            }
+        }
     }
 
     async performSearch() {
