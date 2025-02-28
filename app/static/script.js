@@ -12,66 +12,59 @@ const API = {
             response.json() : response;
     },
 
+    // API methods
     createFolder: (path) => API.request(`/create-folder/${path}`, { method: 'POST' }),
+    
     deleteItem: (path, itemName) => {
         const formData = new FormData();
         formData.append('item_name', itemName);
         return API.request(`/delete/${path}`, { method: 'POST', body: formData });
     },
+    
     renameItem: (path, oldName, newName) => {
         const formData = new FormData();
         formData.append('old_name', oldName);
         formData.append('new_name', newName);
         return API.request(`/rename/${path}`, { method: 'POST', body: formData });
     },
+    
     moveItem: (path, itemName, destination) => {
         const formData = new FormData();
         formData.append('item_name', itemName);
         formData.append('destination', destination);
         
         // Ensure path is never empty to avoid 404 errors
-        // If path is empty (root folder), use "." instead
         const safePath = path || '.';
         
         return API.request(`/move/${safePath}`, { method: 'POST', body: formData });
     },
-    // Delete multiple items one by one
-    async deleteMultipleItems(path, itemNames) {
-        const results = { success: [], failed: [] };
-        for (const itemName of itemNames) {
-            try {
-                await API.deleteItem(path, itemName);
-                results.success.push(itemName);
-            } catch (error) {
-                results.failed.push({ name: itemName, error: error.message });
-            }
-        }
-        return results;
-    },
     
-    // Move multiple items one by one
-    async moveMultipleItems(path, itemNames, destination) {
+    // Batch operations
+    async batchOperation(path, itemNames, operation) {
         const results = { success: [], failed: [] };
-        
-        // Ensure path is never empty to avoid 404 errors
-        // If path is empty (root folder), use "." instead
         const safePath = path || '.';
         
-        console.log(`Moving ${itemNames.length} items from ${safePath} to ${destination}`);
-        
         for (const itemName of itemNames) {
             try {
-                await API.moveItem(safePath, itemName, destination);
+                await operation(safePath, itemName);
                 results.success.push(itemName);
             } catch (error) {
-                console.error(`Error moving ${itemName}: ${error.message}`);
                 results.failed.push({ name: itemName, error: error.message });
             }
         }
         return results;
     },
     
-    // Search for folders only
+    // Use the batch operation method for delete and move
+    deleteMultipleItems: (path, itemNames) => 
+        API.batchOperation(path, itemNames, API.deleteItem),
+    
+    moveMultipleItems: (path, itemNames, destination) => 
+        API.batchOperation(path, itemNames, (path, itemName) => 
+            API.moveItem(path, itemName, destination)),
+    
+    // Search operations
+    search: (query) => API.request(`/search?query=${encodeURIComponent(query)}`),
     searchFolders: (query) => API.request(`/search?query=${encodeURIComponent(query)}&folders_only=true`)
 };
 
@@ -84,6 +77,7 @@ class UIManager {
         this.isUploading = false;
         this.selectedItems = new Set();
         this.selectionMode = false;
+        this.moveModalInitialized = false;
     }
 
     initializeComponents() {
@@ -141,19 +135,9 @@ class UIManager {
             });
         }
         
-        // Select all folders
-        if (this.elements.selectAllFolders) {
-            this.elements.selectAllFolders.addEventListener('click', () => {
-                this.selectAllItems('folder');
-            });
-        }
-        
-        // Select all files
-        if (this.elements.selectAllFiles) {
-            this.elements.selectAllFiles.addEventListener('click', () => {
-                this.selectAllItems('file');
-            });
-        }
+        // Select all buttons
+        this.setupSelectAllButton(this.elements.selectAllFolders, 'folder');
+        this.setupSelectAllButton(this.elements.selectAllFiles, 'file');
 
         // File upload
         const fileInput = document.getElementById('file');
@@ -201,53 +185,35 @@ class UIManager {
                 this.updateSelectedButtons();
             }
         });
-
-        // Initialize select all buttons
-        this.initializeSelectAllButtons();
         
         // Initialize options list event listeners
         this.initializeItemOptionsListeners();
-    }
-
-    initializeSelectAllButtons() {
-        // Set up select all folders button
-        if (this.elements.selectAllFolders) {
-            // Remove any existing event listeners by cloning and replacing
-            const newFoldersBtn = this.elements.selectAllFolders.cloneNode(true);
-            this.elements.selectAllFolders.parentNode.replaceChild(newFoldersBtn, this.elements.selectAllFolders);
-            this.elements.selectAllFolders = newFoldersBtn;
-            
-            // Add new event listener
-            this.elements.selectAllFolders.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Select all folders clicked');
-                this.selectAllItems('folder');
-            });
-            
-            // Hide by default (only shown in selection mode)
-            this.elements.selectAllFolders.style.display = 'none';
-        } else {
-            console.log('Select all folders button not found');
-        }
         
-        // Set up select all files button
-        if (this.elements.selectAllFiles) {
-            // Remove any existing event listeners by cloning and replacing
-            const newFilesBtn = this.elements.selectAllFiles.cloneNode(true);
-            this.elements.selectAllFiles.parentNode.replaceChild(newFilesBtn, this.elements.selectAllFiles);
-            this.elements.selectAllFiles = newFilesBtn;
-            
-            // Add new event listener
-            this.elements.selectAllFiles.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Select all files clicked');
-                this.selectAllItems('file');
-            });
-            
-            // Hide by default (only shown in selection mode)
-            this.elements.selectAllFiles.style.display = 'none';
+        // Setup move modal
+        this.setupMoveModal();
+    }
+    
+    setupSelectAllButton(button, itemType) {
+        if (!button) return;
+        
+        // Remove any existing event listeners by cloning and replacing
+        const newBtn = button.cloneNode(true);
+        button.parentNode.replaceChild(newBtn, button);
+        
+        // Add new event listener
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.selectAllItems(itemType);
+        });
+        
+        // Hide by default (only shown in selection mode)
+        newBtn.style.display = 'none';
+        
+        // Update the reference
+        if (itemType === 'folder') {
+            this.elements.selectAllFolders = newBtn;
         } else {
-            console.log('Select all files button not found');
+            this.elements.selectAllFiles = newBtn;
         }
     }
 
@@ -259,9 +225,9 @@ class UIManager {
         Array.from(itemOptionsButtons).forEach((button, index) => {
             button.addEventListener('click', (e) => {
                 const optionsList = itemOptionsLists[index];
-                // Toggle open state: if not open, open it and stop propagation so it doesn't immediately close.
+                // Toggle open state
                 if (!optionsList.classList.contains('options-open')) {
-                    // Optionally, close any other open options lists:
+                    // Close any other open options lists
                     Array.from(itemOptionsLists).forEach(list => list.classList.remove('options-open'));
                     optionsList.classList.add('options-open');
                     e.stopPropagation();
@@ -271,7 +237,7 @@ class UIManager {
             });
         });
 
-        // Document-level listener to close any open options list on any click (even within the list)
+        // Document-level listener to close any open options list on any click
         document.addEventListener('click', () => {
             Array.from(itemOptionsLists).forEach(list => list.classList.remove('options-open'));
         });
@@ -320,14 +286,11 @@ class UIManager {
                     this.elements.browserContent.classList.add('selection-mode');
                     
                     // Show select all buttons
-                    if (this.elements.selectAllFolders) {
-                        this.elements.selectAllFolders.style.display = 'inline-block';
-                        console.log('Select all folders button shown in refreshContent');
-                    }
-                    if (this.elements.selectAllFiles) {
-                        this.elements.selectAllFiles.style.display = 'inline-block';
-                        console.log('Select all files button shown in refreshContent');
-                    }
+                    this.setupSelectAllButton(this.elements.selectAllFolders, 'folder');
+                    this.setupSelectAllButton(this.elements.selectAllFiles, 'file');
+                    
+                    if (this.elements.selectAllFolders) this.elements.selectAllFolders.style.display = 'inline-block';
+                    if (this.elements.selectAllFiles) this.elements.selectAllFiles.style.display = 'inline-block';
                     
                     // Check any previously selected items that still exist
                     const checkboxes = document.querySelectorAll('.item-checkbox');
@@ -339,8 +302,7 @@ class UIManager {
                     });
                 }
 
-                // Reinitialize buttons and event listeners on the new content
-                this.initializeSelectAllButtons();
+                // Reinitialize options listeners
                 this.initializeItemOptionsListeners();
 
                 return true;
@@ -364,11 +326,9 @@ class UIManager {
         // Show/hide select all buttons
         if (this.elements.selectAllFolders) {
             this.elements.selectAllFolders.style.display = this.selectionMode ? 'inline-block' : 'none';
-            console.log(`Select all folders button display: ${this.elements.selectAllFolders.style.display}`);
         }
         if (this.elements.selectAllFiles) {
             this.elements.selectAllFiles.style.display = this.selectionMode ? 'inline-block' : 'none';
-            console.log(`Select all files button display: ${this.elements.selectAllFiles.style.display}`);
         }
         
         // Clear selection when disabling selection mode
@@ -387,10 +347,7 @@ class UIManager {
         // Get all items of the specified type
         const items = document.querySelectorAll(`.item[data-type="${itemType}"]`);
         
-        if (!items || items.length === 0) {
-            console.log(`No items found with data-type="${itemType}"`);
-            return;
-        }
+        if (!items || items.length === 0) return;
         
         // Check if all items of this type are already selected
         const allSelected = Array.from(items).every(item => {
@@ -398,17 +355,12 @@ class UIManager {
             return checkbox && checkbox.checked;
         });
         
-        console.log(`${itemType}s: ${items.length}, allSelected: ${allSelected}`);
-        
         // If all are selected, deselect all. Otherwise, select all.
         items.forEach(item => {
             const checkbox = item.querySelector('.item-checkbox');
             const itemName = item.dataset.name;
             
-            if (!checkbox || !itemName) {
-                console.log('Missing checkbox or item name', item);
-                return;
-            }
+            if (!checkbox || !itemName) return;
             
             if (allSelected) {
                 // Deselect
@@ -430,21 +382,13 @@ class UIManager {
         
         // Update delete button
         if (this.elements.deleteSelected) {
-            this.elements.deleteSelected.textContent = count > 0 ?
-                `Delete (${count})` :
-                'Delete';
-            
-            // Disable button if no items selected
+            this.elements.deleteSelected.textContent = count > 0 ? `Delete (${count})` : 'Delete';
             this.elements.deleteSelected.disabled = count === 0;
         }
         
         // Update move button
         if (this.elements.moveSelected) {
-            this.elements.moveSelected.textContent = count > 0 ?
-                `Move (${count})` :
-                'Move';
-            
-            // Disable button if no items selected
+            this.elements.moveSelected.textContent = count > 0 ? `Move (${count})` : 'Move';
             this.elements.moveSelected.disabled = count === 0;
         }
     }
@@ -505,7 +449,7 @@ class UIManager {
         // Update the move confirm button click handler
         const moveConfirmBtn = document.getElementById('move-confirm-btn');
         if (moveConfirmBtn) {
-            // Remove any existing event listeners (not possible directly, so we clone and replace)
+            // Remove any existing event listeners by cloning and replacing
             const newMoveBtn = moveConfirmBtn.cloneNode(true);
             moveConfirmBtn.parentNode.replaceChild(newMoveBtn, moveConfirmBtn);
             
@@ -513,9 +457,6 @@ class UIManager {
             newMoveBtn.addEventListener('click', async () => {
                 const destinationPath = document.getElementById('destination-path');
                 const destination = destinationPath.value.trim();
-                
-                // Empty destination is now allowed (moves to root)
-                // No validation needed here
                 
                 try {
                     const currentPath = API.getCurrentPath();
@@ -539,8 +480,6 @@ class UIManager {
                     this.selectedItems.clear();
                     this.updateSelectedButtons();
                     this.toggleSelectionMode(); // Disable selection mode
-                    
-                    // Don't reinitialize the move modal here - this prevents duplicate event listeners
                     
                 } catch (error) {
                     alert(`Error moving items: ${error.message}`);
@@ -660,45 +599,34 @@ class UIManager {
         }
 
         try {
-            const results = await API.request(`/search?query=${encodeURIComponent(query)}`);
+            const results = await API.search(query);
             if (!results.files.length && !results.folders.length) {
                 this.elements.searchResults.style.display = 'none';
                 return;
             }
 
-            let html = results.folders.map(folder => {
-                // For folders, just show folder name and immediate parent folder
-                const pathParts = folder.path.split('/');
-                const folderName = pathParts.pop() || folder.name;
-                // Get only the immediate parent folder name
-                const parentFolder = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
-                
-                return `
-                <div class="search-result-item" onclick="location.href='./${folder.path}'">
-                    <span class="icon">📁</span>
-                    <span class="name">${folderName}</span>
-                    <span class="path">${parentFolder}/</span>
-                </div>
-                `;
-            }).join('');
+            // Generate HTML for search results
+            const generateResultHTML = (items, isFolder) => {
+                return items.map(item => {
+                    const pathParts = item.path.split('/');
+                    const itemName = pathParts.pop() || item.name;
+                    const parentFolder = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
+                    const containingFolder = isFolder ? item.path : (pathParts.length > 0 ? pathParts.join('/') : '/');
+                    
+                    return `
+                    <div class="search-result-item" onclick="location.href='./${containingFolder}'">
+                        <span class="icon">${isFolder ? '📁' : '📄'}</span>
+                        <span class="name">${itemName}</span>
+                        <span class="path">${parentFolder}/</span>
+                    </div>
+                    `;
+                }).join('');
+            };
 
-            html += results.files.map(file => {
-                // For files, show filename and immediate parent folder
-                const pathParts = file.path.split('/');
-                const fileName = pathParts.pop() || file.name;
-                // Get only the immediate parent folder name
-                const parentFolder = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
-                // Full path to the containing folder for navigation
-                const containingFolder = pathParts.length > 0 ? pathParts.join('/') : '/';
-                
-                return `
-                <div class="search-result-item" onclick="location.href='./${containingFolder}'">
-                    <span class="icon">📄</span>
-                    <span class="name">${fileName}</span>
-                    <span class="path">${parentFolder}/</span>
-                </div>
-                `;
-            }).join('');
+            // Combine folder and file results
+            const html = 
+                generateResultHTML(results.folders, true) + 
+                generateResultHTML(results.files, false);
 
             this.elements.searchContent.innerHTML = html;
             this.showSearchResults();
@@ -799,8 +727,101 @@ class UIManager {
             alert(error.message);
         }
     }
+    
+    setupMoveModal() {
+        const moveModal = document.getElementById('move-modal');
+        const closeModalBtn = document.querySelector('.close-modal');
+        const destinationPath = document.getElementById('destination-path');
+        const destinationSearchResults = document.getElementById('destination-search-results');
+        
+        // If we've already initialized the modal, just return
+        if (this.moveModalInitialized) {
+            return;
+        }
+        
+        // Mark as initialized
+        this.moveModalInitialized = true;
+        
+        // Close modal when clicking the X
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                moveModal.style.display = 'none';
+            });
+        }
+        
+        // Close modal when clicking outside the modal content
+        window.addEventListener('click', (e) => {
+            if (e.target === moveModal) {
+                moveModal.style.display = 'none';
+            }
+        });
+        
+        // Folder search functionality
+        if (destinationPath) {
+            destinationPath.addEventListener('input', debounce(async () => {
+                const query = destinationPath.value.trim();
+                if (!query) {
+                    destinationSearchResults.style.display = 'none';
+                    return;
+                }
+                
+                try {
+                    const results = await API.searchFolders(query);
+                    if (!results.folders.length) {
+                        destinationSearchResults.style.display = 'none';
+                        return;
+                    }
+                    
+                    let html = results.folders.map(folder => {
+                        return `
+                        <div class="destination-result-item" data-path="${folder.path}">
+                            <span class="folder-icon">📁</span>
+                            <span class="folder-name">${folder.path}</span>
+                        </div>
+                        `;
+                    }).join('');
+                    
+                    destinationSearchResults.innerHTML = html;
+                    destinationSearchResults.style.display = 'block';
+                    
+                    // Add click handlers to search results
+                    const resultItems = destinationSearchResults.querySelectorAll('.destination-result-item');
+                    resultItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            destinationPath.value = item.dataset.path;
+                            destinationSearchResults.style.display = 'none';
+                        });
+                    });
+                } catch (error) {
+                    console.error('Error searching folders:', error);
+                    destinationSearchResults.style.display = 'none';
+                }
+            }, 300));
+            
+            // Close search results when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!destinationPath.contains(e.target) && !destinationSearchResults.contains(e.target)) {
+                    destinationSearchResults.style.display = 'none';
+                }
+            });
+            
+            // Close search results on escape key
+            destinationPath.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    destinationSearchResults.style.display = 'none';
+                } else if (e.key === 'Enter' && destinationSearchResults.style.display === 'block') {
+                    // Select the first result on enter
+                    const firstResult = destinationSearchResults.querySelector('.destination-result-item');
+                    if (firstResult) {
+                        destinationPath.value = firstResult.dataset.path;
+                        destinationSearchResults.style.display = 'none';
+                        e.preventDefault(); // Prevent form submission
+                    }
+                }
+            });
+        }
+    }
 }
-
 
 // Utility functions
 function formatFileSize(bytes) {
@@ -820,139 +841,6 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
-}
-
-// Modal functionality
-// Track if we've already set up the modal to prevent duplicate event listeners
-let moveModalInitialized = false;
-
-function setupMoveModal() {
-    const moveModal = document.getElementById('move-modal');
-    const closeModalBtn = document.querySelector('.close-modal');
-    const moveConfirmBtn = document.getElementById('move-confirm-btn');
-    const destinationPath = document.getElementById('destination-path');
-    const destinationSearchResults = document.getElementById('destination-search-results');
-    
-    // If we've already initialized the modal, just return
-    // This prevents duplicate event listeners
-    if (moveModalInitialized) {
-        return;
-    }
-    
-    // Mark as initialized
-    moveModalInitialized = true;
-    
-    // Close modal when clicking the X
-    if (closeModalBtn) {
-        closeModalBtn.addEventListener('click', () => {
-            moveModal.style.display = 'none';
-        });
-    }
-    
-    // Close modal when clicking outside the modal content
-    window.addEventListener('click', (e) => {
-        if (e.target === moveModal) {
-            moveModal.style.display = 'none';
-        }
-    });
-    
-    // Folder search functionality
-    if (destinationPath) {
-        destinationPath.addEventListener('input', debounce(async () => {
-            const query = destinationPath.value.trim();
-            if (!query) {
-                destinationSearchResults.style.display = 'none';
-                return;
-            }
-            
-            try {
-                const results = await API.searchFolders(query);
-                if (!results.folders.length) {
-                    destinationSearchResults.style.display = 'none';
-                    return;
-                }
-                
-                let html = results.folders.map(folder => {
-                    const pathParts = folder.path.split('/');
-                    const folderName = pathParts.pop() || folder.name;
-                    
-                    return `
-                    <div class="destination-result-item" data-path="${folder.path}">
-                        <span class="folder-icon">📁</span>
-                        <span class="folder-name">${folder.path}</span>
-                    </div>
-                    `;
-                }).join('');
-                
-                destinationSearchResults.innerHTML = html;
-                destinationSearchResults.style.display = 'block';
-                
-                // Add click handlers to search results
-                const resultItems = destinationSearchResults.querySelectorAll('.destination-result-item');
-                resultItems.forEach(item => {
-                    item.addEventListener('click', () => {
-                        destinationPath.value = item.dataset.path;
-                        destinationSearchResults.style.display = 'none';
-                    });
-                });
-            } catch (error) {
-                console.error('Error searching folders:', error);
-                destinationSearchResults.style.display = 'none';
-            }
-        }, 300));
-        
-        // Close search results when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!destinationPath.contains(e.target) && !destinationSearchResults.contains(e.target)) {
-                destinationSearchResults.style.display = 'none';
-            }
-        });
-        
-        // Close search results on escape key
-        destinationPath.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                destinationSearchResults.style.display = 'none';
-            } else if (e.key === 'Enter' && destinationSearchResults.style.display === 'block') {
-                // Select the first result on enter
-                const firstResult = destinationSearchResults.querySelector('.destination-result-item');
-                if (firstResult) {
-                    destinationPath.value = firstResult.dataset.path;
-                    destinationSearchResults.style.display = 'none';
-                    e.preventDefault(); // Prevent form submission
-                }
-            }
-        });
-    }
-    
-    // Handle move confirmation
-    if (moveConfirmBtn) {
-        moveConfirmBtn.addEventListener('click', async () => {
-            const itemName = document.getElementById('move-item-name').textContent;
-            const destination = document.getElementById('destination-path').value.trim();
-            
-            // Empty destination is now allowed (moves to root)
-            // No validation needed here
-            
-            try {
-                // If destination is empty, move to root
-                const finalDestination = destination.trim() === '' ? '' : destination;
-                
-                // Log the move operation for debugging
-                console.log(`Moving item: ${itemName} from ${API.getCurrentPath()} to ${finalDestination}`);
-                
-                await API.moveItem(API.getCurrentPath(), itemName, finalDestination);
-                moveModal.style.display = 'none';
-                await ui?.refreshContent();
-                
-                // If in selection mode, disable it after move
-                if (ui?.selectionMode) {
-                    ui.toggleSelectionMode();
-                }
-            } catch (error) {
-                alert(`Error moving item: ${error.message}`);
-            }
-        });
-    }
 }
 
 // Directory change handler
@@ -1015,9 +903,6 @@ document.addEventListener('DOMContentLoaded', () => {
         changeDirBtn.classList.add('locked');
         changeDirBtn.addEventListener('click', changeDirectory);
     }
-    
-    // Setup move modal
-    setupMoveModal();
 });
 
 // Global interface
@@ -1031,17 +916,12 @@ window.startMove = (name, isFile) => {
     }
     
     // Set the item name in the modal
-    const itemNameElement = document.getElementById('move-item-name');
     const moveItemMessage = document.getElementById('move-item-message');
-    if (itemNameElement) {
-        itemNameElement.textContent = name;
-    }
     if (moveItemMessage) {
-        moveItemMessage.textContent = 'Moving: ';
+        moveItemMessage.innerHTML = 'Moving: ';
         const span = document.createElement('span');
         span.id = 'move-item-name';
         span.textContent = name;
-        moveItemMessage.innerHTML = 'Moving: ';
         moveItemMessage.appendChild(span);
     }
     
@@ -1052,8 +932,42 @@ window.startMove = (name, isFile) => {
         destinationInput.value = currentPath;
     }
     
-    // We'll use setupMoveModal() only once at the end of this function
-    // to avoid duplicate event listeners
+    // Update the move confirm button click handler
+    const moveConfirmBtn = document.getElementById('move-confirm-btn');
+    if (moveConfirmBtn) {
+        // Remove any existing event listeners by cloning and replacing
+        const newMoveBtn = moveConfirmBtn.cloneNode(true);
+        moveConfirmBtn.parentNode.replaceChild(newMoveBtn, moveConfirmBtn);
+        
+        // Add new event listener
+        newMoveBtn.addEventListener('click', async () => {
+            const itemName = document.getElementById('move-item-name').textContent;
+            const destination = document.getElementById('destination-path').value.trim();
+            
+            try {
+                // If destination is empty, move to root
+                const finalDestination = destination.trim() === '' ? '' : destination;
+                
+                await API.moveItem(API.getCurrentPath(), itemName, finalDestination);
+                
+                // Hide the modal
+                const moveModal = document.getElementById('move-modal');
+                if (moveModal) {
+                    moveModal.style.display = 'none';
+                }
+                
+                // Refresh content
+                await ui?.refreshContent();
+                
+                // If in selection mode, disable it after move
+                if (ui?.selectionMode) {
+                    ui.toggleSelectionMode();
+                }
+            } catch (error) {
+                alert(`Error moving item: ${error.message}`);
+            }
+        });
+    }
     
     // Show the modal
     const moveModal = document.getElementById('move-modal');
