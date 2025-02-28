@@ -951,12 +951,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const directoryInput = DOM.getElement('directory-input');
     const changeDirBtn = DOM.getElement('change-directory-btn');
     const baseDirBtn = document.querySelector('.path-part-btn');
+    const errorMessage = document.querySelector('.error-message');
 
     // Set up directory input and lock state
-    if (directoryInput && baseDirBtn && changeDirBtn) {
-        directoryInput.value = baseDirBtn.textContent.trim();
-        directoryInput.disabled = true;
-        changeDirBtn.classList.add('locked');
+    if (directoryInput && changeDirBtn) {
+        // If there's an error message (volume not mounted), keep the input unlocked
+        if (errorMessage && errorMessage.textContent.includes('not mounted')) {
+            directoryInput.disabled = false;
+            changeDirBtn.classList.remove('locked');
+        } else if (baseDirBtn) {
+            // Normal case: volume is mounted
+            directoryInput.value = baseDirBtn.textContent.trim();
+            directoryInput.disabled = true;
+            changeDirBtn.classList.add('locked');
+        }
+        
+        // Always add the click event listener
         changeDirBtn.addEventListener('click', changeDirectory);
     }
 });

@@ -9,7 +9,10 @@ from typing import List, Dict, Optional, Tuple, Union, Any
 
 # Create FastAPI app
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Use a path relative to the current file's location
+from pathlib import Path
+current_dir = Path(__file__).resolve().parent
+app.mount("/static", StaticFiles(directory=current_dir / "static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 class FileSystemError:
@@ -238,7 +241,7 @@ class FileSystem:
 
 # Initialize file system manager
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / 'test-volume'
+UPLOAD_DIR = Path('/runpod-volume')
 fs = FileSystem(UPLOAD_DIR)
 
 @app.post("/change-directory")
@@ -288,52 +291,101 @@ async def search(query: str = "", folders_only: bool = False):
 async def index(request: Request, path: str = ""):
     """Render index page with directory contents"""
     if not UPLOAD_DIR.exists():
+        # Still render the page but with a warning
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "error": "Error: test-volume is not mounted"}
+            {
+                "request": request,
+                "error": "Warning: /runpod-volume is not mounted",
+                "current_path": "",
+                "base_dir_name": UPLOAD_DIR.name,
+                "files": [],
+                "folders": [],
+                "path_parts": []
+            }
         )
     
-    current_path = UPLOAD_DIR / path
-    contents = fs.get_contents(current_path)
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "current_path": path,
-            "base_dir_name": UPLOAD_DIR.name,
-            **contents
-        }
-    )
+    try:
+        current_path = UPLOAD_DIR / path
+        contents = fs.get_contents(current_path)
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "current_path": path,
+                "base_dir_name": UPLOAD_DIR.name,
+                **contents
+            }
+        )
+    except HTTPException as e:
+        # Handle errors gracefully
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "error": f"Error: {e.detail}",
+                "current_path": path,
+                "base_dir_name": UPLOAD_DIR.name,
+                "files": [],
+                "folders": [],
+                "path_parts": []
+            }
+        )
 
 @app.post("/upload/{path:path}")
 async def upload_file(file: UploadFile = File(...), path: str = ""):
     """Upload a file to specified path"""
-    await fs.upload(file, UPLOAD_DIR / path)
-    return RedirectResponse(url=f"/{path}", status_code=303)
+    try:
+        await fs.upload(file, UPLOAD_DIR / path)
+        return RedirectResponse(url=f"/{path}", status_code=303)
+    except HTTPException as e:
+        if e.status_code == 400 and "Volume not mounted" in e.detail:
+            return {"error": "Cannot upload: Volume not mounted. Please change to a valid directory."}
+        raise
 
 @app.post("/create-folder/{path:path}")
 async def create_folder(path: str = ""):
     """Create a new folder"""
-    return fs.create_folder(UPLOAD_DIR / path)
+    try:
+        return fs.create_folder(UPLOAD_DIR / path)
+    except HTTPException as e:
+        if e.status_code == 400 and "Volume not mounted" in e.detail:
+            return {"error": "Cannot create folder: Volume not mounted. Please change to a valid directory."}
+        raise
 
 @app.post("/rename/{path:path}")
 async def rename_item(path: str, old_name: str = Form(...), new_name: str = Form(...)):
     """Rename a file or folder"""
-    return fs.rename(UPLOAD_DIR / path, old_name, new_name)
+    try:
+        return fs.rename(UPLOAD_DIR / path, old_name, new_name)
+    except HTTPException as e:
+        if e.status_code == 400 and "Volume not mounted" in e.detail:
+            return {"error": "Cannot rename: Volume not mounted. Please change to a valid directory."}
+        raise
 
 @app.post("/delete/{path:path}")
 async def delete_item(path: str, item_name: str = Form(...)):
     """Delete a file or folder"""
-    return fs.delete(UPLOAD_DIR / path, item_name)
+    try:
+        return fs.delete(UPLOAD_DIR / path, item_name)
+    except HTTPException as e:
+        if e.status_code == 400 and "Volume not mounted" in e.detail:
+            return {"error": "Cannot delete: Volume not mounted. Please change to a valid directory."}
+        raise
 
 @app.post("/move/{path:path}")
 async def move_item(path: str, item_name: str = Form(...), destination: str = Form(...)):
     """Move a file or folder to a new location"""
-    # Convert relative destination path to absolute path
-    # If destination is empty or just a slash, use the root directory
-    destination = destination.strip()
-    dest_path = UPLOAD_DIR if destination in ('', '/') else UPLOAD_DIR / destination
-    source_path = UPLOAD_DIR / path
-    
-    # Call the move method
-    return fs.move(source_path, item_name, dest_path)
+    try:
+        # Convert relative destination path to absolute path
+        # If destination is empty or just a slash, use the root directory
+        destination = destination.strip()
+        dest_path = UPLOAD_DIR if destination in ('', '/') else UPLOAD_DIR / destination
+        source_path = UPLOAD_DIR / path
+        
+        # Call the move method
+        return fs.move(source_path, item_name, dest_path)
+    except HTTPException as e:
+        if e.status_code == 400 and "Volume not mounted" in e.detail:
+            return {"error": "Cannot move: Volume not mounted. Please change to a valid directory."}
+        raise
