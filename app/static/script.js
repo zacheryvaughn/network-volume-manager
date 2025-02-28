@@ -28,7 +28,12 @@ const API = {
         const formData = new FormData();
         formData.append('item_name', itemName);
         formData.append('destination', destination);
-        return API.request(`/move/${path}`, { method: 'POST', body: formData });
+        
+        // Ensure path is never empty to avoid 404 errors
+        // If path is empty (root folder), use "." instead
+        const safePath = path || '.';
+        
+        return API.request(`/move/${safePath}`, { method: 'POST', body: formData });
     },
     // Delete multiple items one by one
     async deleteMultipleItems(path, itemNames) {
@@ -47,11 +52,19 @@ const API = {
     // Move multiple items one by one
     async moveMultipleItems(path, itemNames, destination) {
         const results = { success: [], failed: [] };
+        
+        // Ensure path is never empty to avoid 404 errors
+        // If path is empty (root folder), use "." instead
+        const safePath = path || '.';
+        
+        console.log(`Moving ${itemNames.length} items from ${safePath} to ${destination}`);
+        
         for (const itemName of itemNames) {
             try {
-                await API.moveItem(path, itemName, destination);
+                await API.moveItem(safePath, itemName, destination);
                 results.success.push(itemName);
             } catch (error) {
+                console.error(`Error moving ${itemName}: ${error.message}`);
                 results.failed.push({ name: itemName, error: error.message });
             }
         }
@@ -401,8 +414,7 @@ class UIManager {
                     this.updateSelectedButtons();
                     this.toggleSelectionMode(); // Disable selection mode
                     
-                    // Reinitialize the move modal for future use with single items
-                    setupMoveModal();
+                    // Don't reinitialize the move modal here - this prevents duplicate event listeners
                     
                 } catch (error) {
                     alert(`Error moving items: ${error.message}`);
@@ -685,12 +697,24 @@ function debounce(func, wait) {
 }
 
 // Modal functionality
+// Track if we've already set up the modal to prevent duplicate event listeners
+let moveModalInitialized = false;
+
 function setupMoveModal() {
     const moveModal = document.getElementById('move-modal');
     const closeModalBtn = document.querySelector('.close-modal');
     const moveConfirmBtn = document.getElementById('move-confirm-btn');
     const destinationPath = document.getElementById('destination-path');
     const destinationSearchResults = document.getElementById('destination-search-results');
+    
+    // If we've already initialized the modal, just return
+    // This prevents duplicate event listeners
+    if (moveModalInitialized) {
+        return;
+    }
+    
+    // Mark as initialized
+    moveModalInitialized = true;
     
     // Close modal when clicking the X
     if (closeModalBtn) {
@@ -778,7 +802,7 @@ function setupMoveModal() {
     if (moveConfirmBtn) {
         moveConfirmBtn.addEventListener('click', async () => {
             const itemName = document.getElementById('move-item-name').textContent;
-            const destination = destinationPath.value.trim();
+            const destination = document.getElementById('destination-path').value.trim();
             
             // Empty destination is now allowed (moves to root)
             // No validation needed here
@@ -786,6 +810,10 @@ function setupMoveModal() {
             try {
                 // If destination is empty, move to root
                 const finalDestination = destination.trim() === '' ? '' : destination;
+                
+                // Log the move operation for debugging
+                console.log(`Moving item: ${itemName} from ${API.getCurrentPath()} to ${finalDestination}`);
+                
                 await API.moveItem(API.getCurrentPath(), itemName, finalDestination);
                 moveModal.style.display = 'none';
                 await ui?.refreshContent();
@@ -898,8 +926,8 @@ window.startMove = (name, isFile) => {
         destinationInput.value = currentPath;
     }
     
-    // Reinitialize the move modal for a single item
-    setupMoveModal();
+    // We'll use setupMoveModal() only once at the end of this function
+    // to avoid duplicate event listeners
     
     // Show the modal
     const moveModal = document.getElementById('move-modal');
