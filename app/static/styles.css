@@ -414,6 +414,13 @@ button {
 
 .section-title {
     display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+}
+
+.section-title-container {
+    display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
@@ -422,7 +429,31 @@ button {
 .section-title-text {
     font-weight: bold;
     font-size: 18px;
-    margin-right: 18px;
+}
+
+.select-all-btn {
+    font-size: 14px;
+    color: var(--6);
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--E);
+    cursor: pointer;
+    margin-left: 10px;
+    display: none; /* Hidden by default, shown in selection mode */
+}
+
+.select-all-btn:hover {
+    background-color: var(--D);
+    color: var(--0);
+}
+
+.select-all-btn:active {
+    background-color: var(--C);
+}
+
+/* Make sure the button is visible in selection mode */
+.selection-mode .select-all-btn {
+    display: inline-block;
 }
 
 .browser-divider {

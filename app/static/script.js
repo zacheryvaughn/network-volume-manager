@@ -101,7 +101,9 @@ class UIManager {
             selectToggle: document.getElementById('select-toggle'),
             deleteSelected: document.getElementById('delete-selected'),
             moveSelected: document.getElementById('move-selected'),
-            browserContent: document.getElementById('browser-content')
+            browserContent: document.getElementById('browser-content'),
+            selectAllFolders: document.getElementById('select-all-folders'),
+            selectAllFiles: document.getElementById('select-all-files')
         };
 
         // Initialize view mode
@@ -136,6 +138,20 @@ class UIManager {
         if (this.elements.moveSelected) {
             this.elements.moveSelected.addEventListener('click', () => {
                 this.moveSelectedItems();
+            });
+        }
+        
+        // Select all folders
+        if (this.elements.selectAllFolders) {
+            this.elements.selectAllFolders.addEventListener('click', () => {
+                this.selectAllItems('folder');
+            });
+        }
+        
+        // Select all files
+        if (this.elements.selectAllFiles) {
+            this.elements.selectAllFiles.addEventListener('click', () => {
+                this.selectAllItems('file');
             });
         }
 
@@ -186,8 +202,53 @@ class UIManager {
             }
         });
 
+        // Initialize select all buttons
+        this.initializeSelectAllButtons();
+        
         // Initialize options list event listeners
         this.initializeItemOptionsListeners();
+    }
+
+    initializeSelectAllButtons() {
+        // Set up select all folders button
+        if (this.elements.selectAllFolders) {
+            // Remove any existing event listeners by cloning and replacing
+            const newFoldersBtn = this.elements.selectAllFolders.cloneNode(true);
+            this.elements.selectAllFolders.parentNode.replaceChild(newFoldersBtn, this.elements.selectAllFolders);
+            this.elements.selectAllFolders = newFoldersBtn;
+            
+            // Add new event listener
+            this.elements.selectAllFolders.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Select all folders clicked');
+                this.selectAllItems('folder');
+            });
+            
+            // Hide by default (only shown in selection mode)
+            this.elements.selectAllFolders.style.display = 'none';
+        } else {
+            console.log('Select all folders button not found');
+        }
+        
+        // Set up select all files button
+        if (this.elements.selectAllFiles) {
+            // Remove any existing event listeners by cloning and replacing
+            const newFilesBtn = this.elements.selectAllFiles.cloneNode(true);
+            this.elements.selectAllFiles.parentNode.replaceChild(newFilesBtn, this.elements.selectAllFiles);
+            this.elements.selectAllFiles = newFilesBtn;
+            
+            // Add new event listener
+            this.elements.selectAllFiles.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Select all files clicked');
+                this.selectAllItems('file');
+            });
+            
+            // Hide by default (only shown in selection mode)
+            this.elements.selectAllFiles.style.display = 'none';
+        } else {
+            console.log('Select all files button not found');
+        }
     }
 
     initializeItemOptionsListeners() {
@@ -246,6 +307,8 @@ class UIManager {
                 // Re-cache the elements that were replaced
                 this.elements.itemsList = document.getElementById('items-list');
                 this.elements.browserContent = document.getElementById('browser-content');
+                this.elements.selectAllFolders = document.getElementById('select-all-folders');
+                this.elements.selectAllFiles = document.getElementById('select-all-files');
 
                 // Reapply the current view mode
                 if (this.elements.itemsList) {
@@ -255,6 +318,16 @@ class UIManager {
                 // If in selection mode, restore selection mode state
                 if (this.selectionMode) {
                     this.elements.browserContent.classList.add('selection-mode');
+                    
+                    // Show select all buttons
+                    if (this.elements.selectAllFolders) {
+                        this.elements.selectAllFolders.style.display = 'inline-block';
+                        console.log('Select all folders button shown in refreshContent');
+                    }
+                    if (this.elements.selectAllFiles) {
+                        this.elements.selectAllFiles.style.display = 'inline-block';
+                        console.log('Select all files button shown in refreshContent');
+                    }
                     
                     // Check any previously selected items that still exist
                     const checkboxes = document.querySelectorAll('.item-checkbox');
@@ -266,7 +339,8 @@ class UIManager {
                     });
                 }
 
-                // Reinitialize options list event listeners on the new content.
+                // Reinitialize buttons and event listeners on the new content
+                this.initializeSelectAllButtons();
                 this.initializeItemOptionsListeners();
 
                 return true;
@@ -287,6 +361,16 @@ class UIManager {
         this.elements.moveSelected.style.display = this.selectionMode ? 'block' : 'none';
         this.elements.browserContent.classList.toggle('selection-mode', this.selectionMode);
         
+        // Show/hide select all buttons
+        if (this.elements.selectAllFolders) {
+            this.elements.selectAllFolders.style.display = this.selectionMode ? 'inline-block' : 'none';
+            console.log(`Select all folders button display: ${this.elements.selectAllFolders.style.display}`);
+        }
+        if (this.elements.selectAllFiles) {
+            this.elements.selectAllFiles.style.display = this.selectionMode ? 'inline-block' : 'none';
+            console.log(`Select all files button display: ${this.elements.selectAllFiles.style.display}`);
+        }
+        
         // Clear selection when disabling selection mode
         if (!this.selectionMode) {
             this.selectedItems.clear();
@@ -296,6 +380,48 @@ class UIManager {
             checkboxes.forEach(checkbox => checkbox.checked = false);
         }
         
+        this.updateSelectedButtons();
+    }
+    
+    selectAllItems(itemType) {
+        // Get all items of the specified type
+        const items = document.querySelectorAll(`.item[data-type="${itemType}"]`);
+        
+        if (!items || items.length === 0) {
+            console.log(`No items found with data-type="${itemType}"`);
+            return;
+        }
+        
+        // Check if all items of this type are already selected
+        const allSelected = Array.from(items).every(item => {
+            const checkbox = item.querySelector('.item-checkbox');
+            return checkbox && checkbox.checked;
+        });
+        
+        console.log(`${itemType}s: ${items.length}, allSelected: ${allSelected}`);
+        
+        // If all are selected, deselect all. Otherwise, select all.
+        items.forEach(item => {
+            const checkbox = item.querySelector('.item-checkbox');
+            const itemName = item.dataset.name;
+            
+            if (!checkbox || !itemName) {
+                console.log('Missing checkbox or item name', item);
+                return;
+            }
+            
+            if (allSelected) {
+                // Deselect
+                checkbox.checked = false;
+                this.selectedItems.delete(itemName);
+            } else {
+                // Select
+                checkbox.checked = true;
+                this.selectedItems.add(itemName);
+            }
+        });
+        
+        // Update the UI
         this.updateSelectedButtons();
     }
     

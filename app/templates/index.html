@@ -85,13 +85,16 @@
             <div id="items-list" class="items-list">
                 {% if folders %}
                 <div class="section-title">
-                    <span class="section-title-text">Folders</span>
+                    <div class="section-title-container">
+                        <span class="section-title-text">Folders</span>
+                        <button class="select-all-btn" id="select-all-folders" style="display: none;">Select All</button>
+                    </div>
                     <span class="browser-divider"></span>
                 </div>
                 <div class="items-container">
                 {% for folder in folders %}
                     {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
-                    <div class="item" data-name="{{ folder }}" data-type="folder">
+                    <div class="item folder-item" data-name="{{ folder }}" data-type="folder">
                         <div class="item-left">
                             <span class="icon">
                                 <svg class="item-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M448 480L64 480c-35.3 0-64-28.7-64-64L0 192l512 0 0 224c0 35.3-28.7 64-64 64zm64-320L0 160 0 96C0 60.7 28.7 32 64 32l128 0c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8l160 0c35.3 0 64 28.7 64 64z"/></svg>
@@ -116,12 +119,15 @@
 
                 {% if files %}
                 <div class="section-title">
-                    <span class="section-title-text">Files</span>
+                    <div class="section-title-container">
+                        <span class="section-title-text">Files</span>
+                        <button class="select-all-btn" id="select-all-files" style="display: none;">Select All</button>
+                    </div>
                     <span class="browser-divider"></span>
                 </div>
                 <div class="items-container">
                 {% for file in files %}
-                    <div class="item" data-name="{{ file.name }}" data-type="file">
+                    <div class="item file-item" data-name="{{ file.name }}" data-type="file">
                         <div class="item-left">
                             <span class="icon">
                                 <svg class="item-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 288c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128z"/></svg>
