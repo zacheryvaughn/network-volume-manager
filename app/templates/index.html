@@ -93,23 +93,28 @@
                 </div>
                 <div class="items-container">
                 {% for folder in folders %}
-                    {% set folder_path = current_path ~ '/' ~ folder if current_path else folder %}
-                    <div class="item folder-item" data-name="{{ folder }}" data-type="folder">
+                    {% set folder_path = current_path ~ '/' ~ folder.name if current_path else folder.name %}
+                    <div class="item folder-item" data-name="{{ folder.name }}" data-type="folder">
                         <div class="item-left">
                             <span class="icon">
                                 <svg class="item-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M448 480L64 480c-35.3 0-64-28.7-64-64L0 192l512 0 0 224c0 35.3-28.7 64-64 64zm64-320L0 160 0 96C0 60.7 28.7 32 64 32l128 0c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8l160 0c35.3 0 64 28.7 64 64z"/></svg>
                             </span>
-                            <span class="item-name" data-path="/{{ folder_path }}">{{ folder }}/</span>
+                            <span class="item-name" data-path="/{{ folder_path }}">{{ folder.name }}/</span>
                         </div>
+                        <span class="item-size">{{ "%.2f"|format(folder.size / 1024) ~ " KB" if folder.size < 1024 * 1024 else
+                            "%.2f"|format(folder.size / (1024 * 1024)) ~ " MB" if folder.size < 1024 * 1024 * 1024 else
+                            "%.2f"|format(folder.size / (1024 * 1024 * 1024)) ~ " GB" if folder.size < 1024 * 1024 * 1024 * 1024 else
+                            "%.2f"|format(folder.size / (1024 * 1024 * 1024 * 1024)) ~ " TB" }}
+                        </span>
                         <div class="item-right">
-                            <input type="checkbox" class="item-checkbox" aria-label="Select {{ folder }}">
+                            <input type="checkbox" class="item-checkbox" aria-label="Select {{ folder.name }}">
                             <button class="options-btn">
                                 <svg class="options-ellipsis" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z"/></svg>
                             </button>
                             <div class="item-options">
                                 <button class="rename-btn" onclick="startRename(this.closest('.item').querySelector('.item-name'), false)">Rename</button>
-                                <button class="move-btn" onclick="startMove('{{ folder }}', false)">Move</button>
-                                <button class="delete-btn" onclick="deleteItem('{{ folder }}', false)">Delete</button>
+                                <button class="move-btn" onclick="startMove('{{ folder.name }}', false)">Move</button>
+                                <button class="delete-btn" onclick="deleteItem('{{ folder.name }}', false)">Delete</button>
                             </div>
                         </div>
                     </div>

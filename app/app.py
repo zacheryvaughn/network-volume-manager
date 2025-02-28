@@ -43,6 +43,22 @@ class FileSystem:
         if require_dir and not path.is_dir():
             self.raise_error(FileSystemError.DIRECTORY_NOT_FOUND)
 
+    def get_folder_size(self, folder_path: Path) -> int:
+        """Calculate the total size of a folder recursively"""
+        total_size = 0
+        try:
+            for item in folder_path.iterdir():
+                if item.is_file():
+                    try:
+                        total_size += item.stat().st_size
+                    except (PermissionError, OSError):
+                        pass  # Skip files we can't access
+                elif item.is_dir():
+                    total_size += self.get_folder_size(item)
+        except (PermissionError, OSError):
+            pass  # Skip folders we can't access
+        return total_size
+
     def get_contents(self, path: Path) -> Dict[str, List]:
         """Get directory contents and path parts"""
         self.validate_path(path, require_dir=True)
@@ -59,7 +75,13 @@ class FileSystem:
                     # If we can't get size for some reason, show with no size
                     contents["files"].append({"name": item.name, "size": 0})
             else:
-                contents["folders"].append(item.name)
+                # Calculate folder size
+                try:
+                    folder_size = self.get_folder_size(item)
+                    contents["folders"].append({"name": item.name, "size": folder_size})
+                except Exception:
+                    # If we can't calculate size for some reason, show with no size
+                    contents["folders"].append({"name": item.name, "size": 0})
         
         rel_path = path.relative_to(self.base_dir)
         contents["path_parts"] = str(rel_path).split('/') if str(rel_path) != '.' else []

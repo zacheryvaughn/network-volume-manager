@@ -2,7 +2,8 @@
 
 A modern, web-based file management system for network volumes built with FastAPI and vanilla JavaScript.
 
-![Network Volume Manager](image.png)
+![Network Volume Manager](img1.png)
+![Network Volume Manager](img2.png)
 
 ## Overview
 
