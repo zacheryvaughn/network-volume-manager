@@ -1,46 +1,15 @@
 // Core API and error handling
 const API = {
     getCurrentPath: () => window.location.pathname.substring(1),
-    
-    // Logging helper
-    log: (message, level = 'info', data = null) => {
-        const timestamp = new Date().toISOString();
-        const formattedMsg = `[${timestamp}] ${message}`;
-        
-        switch(level.toLowerCase()) {
-            case 'error':
-                console.error(formattedMsg, data || '');
-                break;
-            case 'warn':
-                console.warn(formattedMsg, data || '');
-                break;
-            case 'debug':
-                console.debug(formattedMsg, data || '');
-                break;
-            case 'info':
-            default:
-                console.log(formattedMsg, data || '');
-        }
-    },
 
     async request(url, options = {}) {
-        API.log(`API Request: ${options.method || 'GET'} ${url}`, 'debug', options);
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                const errorMsg = data.detail || response.statusText || 'Request failed';
-                API.log(`API Error: ${errorMsg}`, 'error', { url, status: response.status });
-                throw new Error(errorMsg);
-            }
-            const isJson = response.headers.get('content-type')?.includes('application/json');
-            const result = isJson ? await response.json() : response;
-            API.log(`API Response: ${options.method || 'GET'} ${url} - Status: ${response.status}`, 'debug');
-            return result;
-        } catch (error) {
-            API.log(`API Exception: ${error.message}`, 'error', { url });
-            throw error;
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.detail || response.statusText || 'Request failed');
         }
+        return response.headers.get('content-type')?.includes('application/json') ?
+            response.json() : response;
     },
 
     // Helper to create FormData
@@ -75,20 +44,16 @@ const API = {
     
     // Batch operations
     async batchOperation(path, itemNames, operation) {
-        API.log(`Starting batch operation on ${itemNames.length} items in ${path}`, 'info');
         const results = { success: [], failed: [] };
         
         for (const itemName of itemNames) {
             try {
                 await operation(path || '.', itemName);
                 results.success.push(itemName);
-                API.log(`Batch operation succeeded for: ${itemName}`, 'debug');
             } catch (error) {
                 results.failed.push({ name: itemName, error: error.message });
-                API.log(`Batch operation failed for: ${itemName} - ${error.message}`, 'error');
             }
         }
-        API.log(`Batch operation completed: ${results.success.length} succeeded, ${results.failed.length} failed`, 'info');
         return results;
     },
     
@@ -156,7 +121,6 @@ const DOM = {
 // UI Manager handles all UI operations
 class UIManager {
     constructor() {
-        API.log('Initializing UI Manager', 'info');
         this.initializeComponents();
         this.initializeEventListeners();
         this.uploadQueue = [];
@@ -165,11 +129,9 @@ class UIManager {
         this.selectionMode = false;
         this.moveModalInitialized = false;
         this.currentXhr = null; // Store the current XMLHttpRequest
-        API.log('UI Manager initialized successfully', 'info');
     }
 
     initializeComponents() {
-        API.log('Initializing UI components', 'debug');
         // Cache DOM elements
         this.elements = {
             itemsList: DOM.getElement('items-list'),
@@ -192,7 +154,6 @@ class UIManager {
         // Initialize view mode
         this.viewMode = localStorage.getItem('fileViewMode') || 'list';
         this.updateViewMode(this.viewMode, true); // true = skip saving to localStorage
-        API.log('UI components initialized', 'debug');
     }
 
     initializeEventListeners() {
@@ -352,7 +313,6 @@ class UIManager {
     }
 
     async refreshContent() {
-        API.log('Refreshing content', 'info');
         try {
             const response = await fetch(window.location.pathname);
             const html = await response.text();
@@ -362,7 +322,6 @@ class UIManager {
 
             if (newContent) {
                 document.getElementById('browser-content').innerHTML = newContent.innerHTML;
-                API.log('Content updated successfully', 'debug');
 
                 // Re-cache the elements that were replaced
                 this.elements.itemsList = DOM.getElement('items-list');
@@ -382,13 +341,12 @@ class UIManager {
 
                 // Reinitialize options listeners
                 this.initializeItemOptionsListeners();
-                API.log('Content refresh completed', 'info');
+
                 return true;
             }
-            API.log('No content found to refresh', 'warn');
             return false;
         } catch (error) {
-            API.log('Error refreshing content', 'error', error);
+            console.error('Error refreshing content:', error);
             return false;
         }
     }
@@ -531,32 +489,22 @@ class UIManager {
     }
 
     handleFileSelection(files) {
-        if (!files?.length) {
-            API.log('No files selected', 'debug');
-            return;
-        }
+        if (!files?.length) return;
 
-        API.log(`File selection: ${files.length} files selected`, 'info');
         const maxSize = 32 * 1024 * 1024 * 1024; // 32GB
         const validFiles = Array.from(files).filter(file => {
             if (file.size > maxSize) {
-                API.log(`File size exceeded limit: ${file.name} (${formatFileSize(file.size)})`, 'warn');
                 alert(`File ${file.name} exceeds 32GB limit`);
                 return false;
             }
             return true;
         });
 
-        if (!validFiles.length) {
-            API.log('No valid files to upload', 'warn');
-            return;
-        }
+        if (!validFiles.length) return;
 
-        API.log(`Adding ${validFiles.length} files to upload queue`, 'info');
         this.elements.progressBar.style.width = '0%';
 
         validFiles.forEach(file => {
-            API.log(`Queuing file: ${file.name} (${formatFileSize(file.size)})`, 'debug');
             const item = DOM.createElementWithHTML('div', 'queue-item', `
                 <div class="queue-item-name">${file.name}</div>
                 <div class="queue-item-size">${formatFileSize(file.size)}</div>
@@ -575,14 +523,7 @@ class UIManager {
             });
             
             this.elements.queuedFiles.appendChild(item);
-            const isChunked = file.size > 32 * 1024 * 1024; // Use chunked upload for files > 32MB
-            this.uploadQueue.push({
-                file,
-                element: item,
-                chunked: isChunked
-            });
-            
-            API.log(`File queued: ${file.name} (${isChunked ? 'chunked with parallel uploads and retry' : 'regular'} upload)`, 'debug');
+            this.uploadQueue.push({ file, element: item });
         });
 
         if (!this.isUploading) this.processUploadQueue();
@@ -590,15 +531,13 @@ class UIManager {
 
     async processUploadQueue() {
         if (!this.uploadQueue.length) {
-            API.log('Upload queue empty, stopping upload process', 'info');
             this.isUploading = false;
             this.elements.progressBar.style.width = '0%';
             return;
         }
 
         this.isUploading = true;
-        const { file, element, chunked } = this.uploadQueue[0];
-        API.log(`Starting upload of ${file.name} (${formatFileSize(file.size)})`, 'info');
+        const { file, element } = this.uploadQueue[0];
         element.classList.add('uploading');
         
         // Make the cancel button more prominent during upload
@@ -606,15 +545,7 @@ class UIManager {
         if (cancelBtn) cancelBtn.classList.add('uploading');
 
         try {
-            if (chunked) {
-                API.log(`Using chunked upload for ${file.name}`, 'debug');
-                await this.uploadFileChunked(file);
-            } else {
-                API.log(`Using regular upload for ${file.name}`, 'debug');
-                await this.uploadFile(file);
-            }
-            
-            API.log(`Upload completed successfully: ${file.name}`, 'info');
+            await this.uploadFile(file);
             element.style.opacity = '0';
             setTimeout(() => {
                 element.remove();
@@ -625,7 +556,6 @@ class UIManager {
         } catch (error) {
             if (error.message === 'Upload canceled') {
                 // Handle canceled upload
-                API.log(`Upload canceled: ${file.name}`, 'info');
                 element.classList.add('canceled');
                 setTimeout(() => {
                     element.style.opacity = '0';
@@ -637,7 +567,6 @@ class UIManager {
                 }, 1000);
             } else {
                 // Handle other errors
-                API.log(`Upload failed: ${file.name} - ${error.message}`, 'error');
                 alert(error.message);
                 element.remove();
                 this.uploadQueue.shift();
@@ -648,38 +577,28 @@ class UIManager {
 
     uploadFile(file) {
         return new Promise((resolve, reject) => {
-            API.log(`Starting regular upload for ${file.name}`, 'debug');
             const xhr = new XMLHttpRequest();
             // Store the current XHR so it can be aborted if needed
             this.currentXhr = xhr;
             
-            const uploadPath = `/upload/${API.getCurrentPath() || '.'}`;
-            API.log(`Upload URL: ${uploadPath}`, 'debug');
-            xhr.open('POST', uploadPath, true);
+            xhr.open('POST', `/upload/${API.getCurrentPath() || '.'}`, true);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
                     this.elements.progressBar.style.width = `${percent}%`;
-                    if (percent % 20 === 0) { // Log progress at 0%, 20%, 40%, 60%, 80%, 100%
-                        API.log(`Upload progress for ${file.name}: ${percent}%`, 'debug');
-                    }
                 }
             };
 
             xhr.onload = () => {
                 this.currentXhr = null;
                 if (xhr.status === 200 || xhr.status === 303) {
-                    API.log(`Upload successful: ${file.name}`, 'info');
                     resolve();
                 } else {
                     try {
                         const response = JSON.parse(xhr.responseText);
-                        const errorMsg = response.detail || 'Upload failed';
-                        API.log(`Upload failed: ${file.name} - ${errorMsg}`, 'error');
-                        reject(new Error(errorMsg));
+                        reject(new Error(response.detail || 'Upload failed'));
                     } catch {
-                        API.log(`Upload failed: ${file.name} - Unknown error`, 'error');
                         reject(new Error('Upload failed'));
                     }
                 }
@@ -687,13 +606,11 @@ class UIManager {
 
             xhr.onerror = () => {
                 this.currentXhr = null;
-                API.log(`Network error during upload: ${file.name}`, 'error');
                 reject(new Error('Network error during upload'));
             };
             
             xhr.onabort = () => {
                 this.currentXhr = null;
-                API.log(`Upload aborted: ${file.name}`, 'info');
                 reject(new Error('Upload canceled'));
             };
 
@@ -703,211 +620,11 @@ class UIManager {
         });
     }
     
-    uploadFileChunked(file) {
-        return new Promise((resolve, reject) => {
-            API.log(`Starting chunked upload for ${file.name}`, 'info');
-            const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks - smaller chunks for better reliability
-            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-            const MAX_PARALLEL_UPLOADS = 4; // Maximum number of parallel uploads
-            const MAX_RETRIES = 3; // Maximum number of retries per chunk
-            
-            API.log(`File will be split into ${totalChunks} chunks of ${formatFileSize(CHUNK_SIZE)} each`, 'debug');
-            API.log(`Using ${MAX_PARALLEL_UPLOADS} parallel uploads with ${MAX_RETRIES} max retries`, 'debug');
-            
-            // Track upload state
-            let aborted = false;
-            let activeUploads = 0;
-            let completedChunks = 0;
-            let failedChunks = 0;
-            
-            // Track XHR requests for each chunk
-            this.xhrRequests = {};
-            
-            // Track retry counts and backoff for each chunk
-            const retryCount = {};
-            const chunkQueue = [];
-            
-            // Initialize queue with all chunks
-            for (let i = 0; i < totalChunks; i++) {
-                chunkQueue.push(i);
-                retryCount[i] = 0;
-            }
-            
-            // Store the abort function
-            this.abortChunkedUpload = () => {
-                aborted = true;
-                // Abort all active XHR requests
-                Object.values(this.xhrRequests).forEach(xhr => {
-                    if (xhr) xhr.abort();
-                });
-                API.log(`Chunked upload aborted: ${file.name}`, 'info');
-                reject(new Error('Upload canceled'));
-            };
-            
-            // Update overall progress
-            const updateProgress = () => {
-                const overallProgress = (completedChunks / totalChunks) * 100;
-                const roundedProgress = Math.round(overallProgress);
-                this.elements.progressBar.style.width = `${roundedProgress}%`;
-                
-                if (roundedProgress % 10 === 0) { // Log at 0%, 10%, 20%, etc.
-                    API.log(`Chunked upload progress: ${roundedProgress}% (${completedChunks}/${totalChunks} chunks)`, 'debug');
-                }
-            };
-            
-            // Process the upload queue
-            const processQueue = () => {
-                if (aborted) return;
-                
-                // Start new uploads if we have capacity and chunks in the queue
-                while (activeUploads < MAX_PARALLEL_UPLOADS && chunkQueue.length > 0) {
-                    const chunkIndex = chunkQueue.shift();
-                    uploadChunk(chunkIndex);
-                }
-                
-                // Check if we're done
-                if (completedChunks === totalChunks) {
-                    API.log(`All ${totalChunks} chunks uploaded successfully`, 'info');
-                    resolve();
-                } else if (chunkQueue.length === 0 && activeUploads === 0) {
-                    // If queue is empty and no active uploads but we're not done, we have permanent failures
-                    API.log(`Upload failed: ${failedChunks} chunks could not be uploaded after retries`, 'error');
-                    reject(new Error(`Upload failed after retries. ${failedChunks} chunks could not be uploaded.`));
-                }
-            };
-            
-            // Upload a specific chunk
-            const uploadChunk = (chunkIndex) => {
-                if (aborted) return;
-                
-                activeUploads++;
-                const start = chunkIndex * CHUNK_SIZE;
-                const end = Math.min(file.size, start + CHUNK_SIZE);
-                const chunk = file.slice(start, end);
-                
-                API.log(`Uploading chunk ${chunkIndex+1}/${totalChunks} (${formatFileSize(chunk.size)})`, 'debug');
-                
-                const xhr = new XMLHttpRequest();
-                this.xhrRequests[chunkIndex] = xhr;
-                
-                const uploadPath = `/upload-chunk/${API.getCurrentPath() || '.'}`;
-                xhr.open('POST', uploadPath, true);
-                
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        // We don't update the overall progress bar for individual chunk progress
-                        // to avoid jumpy updates with parallel uploads
-                    }
-                };
-                
-                xhr.onload = () => {
-                    delete this.xhrRequests[chunkIndex];
-                    activeUploads--;
-                    
-                    if (xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            
-                            if (response.status === 'complete') {
-                                // All chunks uploaded and combined
-                                API.log(`Chunked upload completed successfully: ${file.name}`, 'info');
-                                completedChunks = totalChunks; // Mark all as complete
-                                updateProgress();
-                                resolve();
-                            } else if (response.status === 'chunk_received') {
-                                // Chunk successful
-                                API.log(`Chunk ${chunkIndex+1}/${totalChunks} uploaded successfully`, 'debug');
-                                completedChunks++;
-                                updateProgress();
-                                processQueue(); // Process next chunks
-                            }
-                        } catch (error) {
-                            API.log(`Error parsing server response for chunk ${chunkIndex+1}: ${error.message}`, 'error');
-                            handleChunkError(chunkIndex, new Error('Error parsing server response'));
-                        }
-                    } else {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            const errorMsg = response.detail || 'Chunk upload failed';
-                            API.log(`Chunk ${chunkIndex+1} upload failed: ${errorMsg}`, 'error');
-                            handleChunkError(chunkIndex, new Error(errorMsg));
-                        } catch {
-                            API.log(`Chunk ${chunkIndex+1} upload failed with unknown error`, 'error');
-                            handleChunkError(chunkIndex, new Error('Chunk upload failed'));
-                        }
-                    }
-                };
-                
-                xhr.onerror = () => {
-                    delete this.xhrRequests[chunkIndex];
-                    activeUploads--;
-                    API.log(`Network error during chunk ${chunkIndex+1} upload`, 'error');
-                    handleChunkError(chunkIndex, new Error('Network error during chunk upload'));
-                };
-                
-                xhr.onabort = () => {
-                    delete this.xhrRequests[chunkIndex];
-                    activeUploads--;
-                    // Don't retry aborted uploads
-                };
-                
-                const formData = new FormData();
-                formData.append('filename', file.name);
-                formData.append('chunk_index', chunkIndex);
-                formData.append('total_chunks', totalChunks);
-                formData.append('chunk', chunk);
-                xhr.send(formData);
-            };
-            
-            // Handle chunk upload errors with retry logic
-            const handleChunkError = (chunkIndex, error) => {
-                if (aborted) return;
-                
-                retryCount[chunkIndex]++;
-                
-                if (retryCount[chunkIndex] <= MAX_RETRIES) {
-                    // Calculate exponential backoff delay: 2^retry * 1000ms + random jitter
-                    const backoffDelay = Math.min(30000, Math.pow(2, retryCount[chunkIndex] - 1) * 1000 + Math.random() * 1000);
-                    
-                    API.log(`Retrying chunk ${chunkIndex+1} (attempt ${retryCount[chunkIndex]}/${MAX_RETRIES}) after ${Math.round(backoffDelay)}ms`, 'warn');
-                    
-                    // Add back to queue with delay
-                    setTimeout(() => {
-                        if (!aborted) {
-                            chunkQueue.push(chunkIndex);
-                            processQueue();
-                        }
-                    }, backoffDelay);
-                } else {
-                    // Max retries exceeded
-                    API.log(`Chunk ${chunkIndex+1} failed after ${MAX_RETRIES} retries`, 'error');
-                    failedChunks++;
-                    
-                    // Check if we should continue with other chunks or fail the whole upload
-                    if (chunkQueue.length === 0 && activeUploads === 0) {
-                        processQueue(); // This will trigger the failure path
-                    }
-                }
-            };
-            
-            // Start the upload process
-            processQueue();
-        });
-    }
-    
     cancelUpload(file) {
-        API.log(`Canceling upload for ${file.name}`, 'info');
-        
         // If this is the currently uploading file
         if (this.isUploading && this.uploadQueue.length > 0 && this.uploadQueue[0].file === file) {
-            API.log(`Canceling active upload: ${file.name}`, 'debug');
-            // Check if it's a chunked upload
-            if (this.uploadQueue[0].chunked && this.abortChunkedUpload) {
-                API.log('Aborting chunked upload', 'debug');
-                this.abortChunkedUpload();
-            } else if (this.currentXhr) {
-                // Regular upload - abort the current XHR request
-                API.log('Aborting regular upload', 'debug');
+            // Abort the current XHR request
+            if (this.currentXhr) {
                 this.currentXhr.abort();
                 this.currentXhr = null;
             }
@@ -915,7 +632,6 @@ class UIManager {
             // Remove from queue if it's not the current upload
             const index = this.uploadQueue.findIndex(item => item.file === file);
             if (index !== -1) {
-                API.log(`Removing file from queue: ${file.name} (position ${index+1})`, 'debug');
                 const { element } = this.uploadQueue[index];
                 element.style.opacity = '0';
                 setTimeout(() => {
@@ -933,17 +649,13 @@ class UIManager {
             return;
         }
 
-        API.log(`Performing search for: "${query}"`, 'info');
         try {
             const results = await API.search(query);
             if (!results.files.length && !results.folders.length) {
-                API.log(`No search results found for: "${query}"`, 'debug');
                 DOM.setDisplay(this.elements.searchResults, false);
                 return;
             }
 
-            API.log(`Search results: ${results.folders.length} folders, ${results.files.length} files`, 'debug');
-            
             // Generate HTML for search results
             const generateResultHTML = (items, isFolder) => {
                 return items.map(item => {
@@ -963,14 +675,12 @@ class UIManager {
             };
 
             // Combine folder and file results
-            this.elements.searchContent.innerHTML =
-                generateResultHTML(results.folders, true) +
+            this.elements.searchContent.innerHTML = 
+                generateResultHTML(results.folders, true) + 
                 generateResultHTML(results.files, false);
                 
             this.showSearchResults();
-            API.log('Search results displayed', 'debug');
         } catch (error) {
-            API.log(`Search error: ${error.message}`, 'error');
             this.elements.searchContent.innerHTML = '<div class="search-error">No results found</div>';
             this.showSearchResults();
         }
@@ -1198,7 +908,6 @@ async function changeDirectory() {
 
     // Toggle lock state if input is disabled
     if (directoryInput.disabled) {
-        API.log('Unlocking directory input field', 'debug');
         directoryInput.disabled = false;
         changeDirBtn.classList.remove('locked');
         return;
@@ -1206,12 +915,10 @@ async function changeDirectory() {
 
     const newPath = directoryInput.value.trim();
     if (!newPath) {
-        API.log('Empty directory path provided', 'warn');
         alert('Please enter a directory path');
         return;
     }
 
-    API.log(`Changing directory to: ${newPath}`, 'info');
     try {
         const response = await fetch('/change-directory', {
             method: 'POST',
@@ -1221,20 +928,16 @@ async function changeDirectory() {
 
         if (!response.ok) {
             const data = await response.json();
-            const errorMsg = data.detail || 'Failed to change directory';
-            API.log(`Directory change failed: ${errorMsg}`, 'error');
-            throw new Error(errorMsg);
+            throw new Error(data.detail || 'Failed to change directory');
         }
 
         // Lock the input after successful directory change
         directoryInput.disabled = true;
         changeDirBtn.classList.add('locked');
-        API.log(`Directory changed successfully to: ${newPath}`, 'info');
 
         // Redirect to root of new directory
         window.location.href = '/';
     } catch (error) {
-        API.log(`Directory change error: ${error.message}`, 'error');
         alert(error.message);
     }
 }
@@ -1242,7 +945,6 @@ async function changeDirectory() {
 // Initialize UI
 let ui;
 document.addEventListener('DOMContentLoaded', () => {
-    API.log('DOM content loaded, initializing application', 'info');
     ui = new UIManager();
 
     // Initialize directory input and button
@@ -1253,17 +955,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Set up directory input and lock state
     if (directoryInput && changeDirBtn) {
-        API.log('Setting up directory input field', 'debug');
         // If there's an error message (volume not mounted), keep the input unlocked
         if (errorMessage && errorMessage.textContent.includes('not mounted')) {
-            API.log('Volume not mounted, keeping directory input unlocked', 'warn');
             directoryInput.disabled = false;
             changeDirBtn.classList.remove('locked');
         } else if (baseDirBtn) {
             // Normal case: volume is mounted
-            const baseDirName = baseDirBtn.textContent.trim();
-            API.log(`Volume mounted, setting base directory to: ${baseDirName}`, 'info');
-            directoryInput.value = baseDirName;
+            directoryInput.value = baseDirBtn.textContent.trim();
             directoryInput.disabled = true;
             changeDirBtn.classList.add('locked');
         }
@@ -1271,43 +969,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Always add the click event listener
         changeDirBtn.addEventListener('click', changeDirectory);
     }
-    
-    API.log('Application initialization complete', 'info');
 });
 
 // Global interface
-window.startRename = (element, isFolder) => {
-    if (!element) return;
-    const itemName = element.textContent || '';
-    API.log(`Starting rename for ${isFolder ? 'folder' : 'file'}: ${itemName}`, 'info');
-    ui?.startRename(element, isFolder);
-};
-
-window.deleteItem = (name, isFolder) => {
-    if (!name) return;
-    API.log(`Delete request for ${isFolder ? 'folder' : 'file'}: ${name}`, 'info');
-    ui?.deleteItem(name, isFolder);
-};
-
+window.startRename = (element, isFolder) => ui?.startRename(element, isFolder);
+window.deleteItem = (name, isFolder) => ui?.deleteItem(name, isFolder);
 window.startMove = (name, isFile) => {
-    if (!ui || !name) return;
+    if (!ui) return;
     
-    API.log(`Move request for ${isFile ? 'file' : 'folder'}: ${name}`, 'info');
     ui.showMoveModal('Move Item', `Moving: ${name}`, async (destination) => {
         try {
-            const formattedDestination = destination.trim() === '' ? '' : destination;
-            API.log(`Moving ${name} to ${formattedDestination || 'root'}`, 'debug');
-            await API.moveItem(API.getCurrentPath(), name, formattedDestination);
+            await API.moveItem(API.getCurrentPath(), name, destination.trim() === '' ? '' : destination);
             await ui.refreshContent();
             
             // If in selection mode, disable it after move
             if (ui.selectionMode) {
                 ui.toggleSelectionMode();
             }
-            API.log(`Move completed successfully: ${name}`, 'info');
             return true;
         } catch (error) {
-            API.log(`Move failed: ${error.message}`, 'error');
             alert(`Error moving item: ${error.message}`);
             return false;
         }
@@ -1315,13 +995,10 @@ window.startMove = (name, isFile) => {
 };
 
 window.createFolder = async () => {
-    API.log('Creating new folder', 'info');
     try {
         await API.createFolder(API.getCurrentPath());
         await ui?.refreshContent();
-        API.log('Folder created successfully', 'info');
     } catch (error) {
-        API.log(`Folder creation failed: ${error.message}`, 'error');
         alert(error.message);
     }
 };

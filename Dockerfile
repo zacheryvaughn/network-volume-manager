@@ -20,4 +20,4 @@ EXPOSE 5000
 # Command to run the application
 CMD ["python", "run.py", "--host", "0.0.0.0", "--port", "5000"]
 
-# docker build --platform linux/amd64 -t zacvaughndev/network-volume-manager:v4 .
+# docker build --platform linux/amd64 -t zacvaughndev/network-volume-manager:v7 .

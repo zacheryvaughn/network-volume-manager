@@ -46,7 +46,7 @@ ehthumbs.db
 Thumbs.db
 
 # Application specific
-test-volume/
+workspace/
 *.png
 *.jpg
 *.jpeg
